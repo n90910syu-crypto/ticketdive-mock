@@ -454,18 +454,29 @@
 
       let doc = null;
       let fetchError = null;
+      let timedOut = false;
 
       // 複数の取得方法を順番に試す(1つ失敗しても次を試す)
       const attempts = [
-        function () { return fetch('https://nakao.n90910syu.workers.dev/?url=' + encodeURIComponent(url)); },
-        function () { return fetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url)); },
-        function () { return fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url)); },
-        function () { return fetch(url); }
+        function (signal) { return fetch('https://nakao.n90910syu.workers.dev/?url=' + encodeURIComponent(url), { signal: signal }); },
+        function (signal) { return fetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url), { signal: signal }); },
+        function (signal) { return fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url), { signal: signal }); },
+        function (signal) { return fetch(url, { signal: signal }); }
       ];
 
+      // ここから5秒経ったら、まだ試していない方法があっても打ち切る
+      const deadline = Date.now() + 5000;
+
       for (const attempt of attempts) {
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) {
+          timedOut = true;
+          break;
+        }
+        const controller = new AbortController();
+        const timer = setTimeout(function () { controller.abort(); }, remaining);
         try {
-          const response = await attempt();
+          const response = await attempt(controller.signal);
           if (!response.ok) {
             throw new Error('ネットワークエラー: ' + response.status);
           }
@@ -475,9 +486,15 @@
           }
           doc = new DOMParser().parseFromString(html, 'text/html');
           fetchError = null;
+          clearTimeout(timer);
           break;
         } catch (err) {
+          if (err && err.name === 'AbortError') {
+            timedOut = true;
+          }
           fetchError = err;
+        } finally {
+          clearTimeout(timer);
         }
       }
 
@@ -608,12 +625,14 @@
         }
       }
 
-      if (fetchError) {
+      if (doc) {
+        fetchStatus.textContent = gotCount + '件の項目を取得しました(5秒以内に取得できた分のみ反映)。空欄が残っていれば手入力してください。';
+      } else if (timedOut) {
+        fetchStatus.textContent = '5秒以内に取得できませんでした。空欄の項目は手入力してください。';
+      } else if (fetchError) {
         fetchStatus.textContent = '取得できませんでした(' + fetchError.message + ')。空欄の項目は手入力してください。';
-      } else if (gotCount === 0) {
-        fetchStatus.textContent = 'ページは取得できましたが、対象の情報が見つかりませんでした。手入力してください。';
       } else {
-        fetchStatus.textContent = gotCount + '件の項目を取得しました。空欄が残っていれば手入力してください。';
+        fetchStatus.textContent = 'ページは取得できましたが、対象の情報が見つかりませんでした。手入力してください。';
       }
     });
 
