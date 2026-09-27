@@ -166,5 +166,45 @@
 
   </div>
 </div>
+<script>
+(function () {
+  function get(key) {
+    try { return localStorage.getItem(key) || ''; } catch (e) { return ''; }
+  }
+
+  var eventTitle = get('eventTitle');
+  var eventDate = get('eventDate');       // 例: 2026年10月30日(金)
+  var eventShowtime = get('eventShowtime'); // 例: 開場 16:30／開演 17:00
+  var eventImage = get('eventImage');
+  var eventTicketType = get('eventTicketType');
+
+  if (eventTitle) {
+    var titleEl = document.getElementById('ticket-1-title');
+    if (titleEl) titleEl.textContent = eventTitle;
+  }
+
+  if (eventImage) {
+    var imgEl = document.getElementById('ticket-1-image');
+    if (imgEl) imgEl.setAttribute('src', eventImage);
+  }
+
+  if (eventTicketType) {
+    var typeEl = document.getElementById('ticket-1-type');
+    if (typeEl) typeEl.textContent = eventTicketType;
+  }
+
+  // 日付+開場時刻をまとめて「◯◯年◯月◯日(◯) HH:MM開場」の形にする
+  var dateMatch = eventDate.match(/(\d{4})年(\d{1,2})月(\d{1,2})日\(([^)]+)\)/);
+  var openMatch = eventShowtime.match(/開場\s*(\d{1,2}):(\d{2})/);
+  if (dateMatch) {
+    var line = dateMatch[1] + '年' + dateMatch[2] + '月' + dateMatch[3] + '日(' + dateMatch[4] + ')';
+    if (openMatch) {
+      line += ' ' + openMatch[1].padStart(2, '0') + ':' + openMatch[2] + '開場';
+    }
+    var datetimeEl = document.getElementById('ticket-1-datetime');
+    if (datetimeEl) datetimeEl.textContent = line;
+  }
+})();
+</script>
 </body>
 </html>

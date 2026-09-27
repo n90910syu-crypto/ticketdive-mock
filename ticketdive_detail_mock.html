@@ -147,6 +147,53 @@
 </style>
 <script>
 (function () {
+  function get(key) {
+    try { return localStorage.getItem(key) || ''; } catch (e) { return ''; }
+  }
+  function setText(id, value) {
+    if (!value) return;
+    var el = document.getElementById(id);
+    if (el) el.textContent = value;
+  }
+
+  var eventTitle = get('eventTitle');
+  var eventVenue = get('eventVenue');
+  var eventDate = get('eventDate');           // 例: 2026年10月30日(金)
+  var eventShowtime = get('eventShowtime');   // 例: 開場 16:30／開演 17:00
+  var eventImage = get('eventImage');
+  var eventTicketType = get('eventTicketType');
+  var userInput = get('userInput');           // 整理番号(例: S-34)
+  var userName = get('userName');             // 氏名
+  var userGroup = get('userGroup');           // お目当てのグループ
+
+  setText('detail-event-name', eventTitle);
+  setText('detail-venue', eventVenue);
+  setText('detail-purchaser-name', userName);
+  setText('detail-favorite-artist', userGroup);
+  setText('detail-ticket-type', eventTicketType);
+  setText('detail-reference-number', userInput);
+
+  if (eventImage) {
+    var imgEl = document.getElementById('detail-image');
+    var blurEl = document.getElementById('detail-image-blur');
+    if (imgEl) imgEl.setAttribute('src', eventImage);
+    if (blurEl) blurEl.setAttribute('src', eventImage);
+  }
+
+  var dateMatch = eventDate.match(/(\d{4})年(\d{1,2})月(\d{1,2})日\(([^)]+)\)/);
+  if (dateMatch) {
+    setText('detail-date-day', dateMatch[2] + '.' + dateMatch[3].padStart(2, '0'));
+    setText('detail-date-weekday', dateMatch[4]);
+  }
+
+  var openMatch = eventShowtime.match(/開場\s*(\d{1,2}):(\d{2})/);
+  if (openMatch) setText('detail-open-time', openMatch[1].padStart(2, '0') + ':' + openMatch[2]);
+  var startMatch = eventShowtime.match(/開演\s*(\d{1,2}):(\d{2})/);
+  if (startMatch) setText('detail-start-time', startMatch[1].padStart(2, '0') + ':' + startMatch[2]);
+})();
+</script>
+<script>
+(function () {
   function setupMarquee(wrapId, spanId) {
     var wrap = document.getElementById(wrapId);
     var span = document.getElementById(spanId);

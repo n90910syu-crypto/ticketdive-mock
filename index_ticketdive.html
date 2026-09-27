@@ -486,17 +486,25 @@
       let gotCount = 0;
 
       if (doc) {
-        const titleEl = doc.querySelector('.Typography_root__9AOcJ EventInfoUnit_name__P2ZEy');
+        // イベント名: EventInfoUnit_name__P2ZEy というクラスを持つ見出し
+        const titleEl = doc.querySelector('.EventInfoUnit_name__P2ZEy');
         if (titleEl && titleEl.textContent.trim()) {
           eventTitleInput.value = titleEl.textContent.trim();
           gotCount++;
         }
 
-        const dateEl = doc.querySelector('.pg-event__ordering__program__datetime');
-        if (dateEl && dateEl.textContent.trim()) {
-          const rawDate = dateEl.textContent.trim();
-          // 会場の開場時刻など余計な部分を除き、日付(+曜日)だけを取り出す
-          const dateMatch = rawDate.match(/(\d{4})年(\d{1,2})月(\d{1,2})日(?:\(([^)]+)\))?/);
+        // 日時・開場時刻・開演時刻: 「2026/10/30(金)」「開場時刻 16:30 / 開演時刻 17:00」のような
+        // テキストが1つのspanにまとまっている(専用クラス名がないので中身のパターンで探す)
+        const infoSpans = Array.from(doc.querySelectorAll('span.Typography_root__9AOcJ'));
+        const dateTimeEl = infoSpans.find(function (el) {
+          const t = el.textContent;
+          return /\d{4}\/\d{1,2}\/\d{1,2}/.test(t) && t.includes('開場時刻');
+        });
+
+        if (dateTimeEl) {
+          const rawText = dateTimeEl.textContent;
+
+          const dateMatch = rawText.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})(?:\(([^)]+)\))?/);
           if (dateMatch) {
             const y = dateMatch[1];
             const m = dateMatch[2].padStart(2, '0');
@@ -504,27 +512,13 @@
             const weekday = dateMatch[4] || weekdayKanji[new Date(Number(y), Number(m) - 1, Number(d)).getDay()];
             eventDateInput.value = y + '年' + m + '月' + d + '日(' + weekday + ')';
 
-            // プルダウンの初期値も取得した日付に合わせておく
             dateYearSelect.value = y;
             dateMonthSelect.value = m;
             dateDaySelect.value = d;
-          } else {
-            eventDateInput.value = rawDate;
+            gotCount++;
           }
-          gotCount++;
-        }
 
-        const detailTitleEls = doc.querySelectorAll('.pg-event__detail__title');
-        let showtime = '';
-        detailTitleEls.forEach(function (el) {
-          const t = el.textContent.trim();
-          if (t.includes('開場') || t.includes('開演')) {
-            showtime = t;
-          }
-        });
-        if (showtime) {
-          // 表記ゆれを吸収しつつ「開場 xx:xx／開演 xx:xx」の形に整形する
-          const timeMatch = showtime.match(/開場\s*(\d{1,2}):(\d{2}).*?開演\s*(\d{1,2}):(\d{2})/);
+          const timeMatch = rawText.match(/開場時刻\s*(\d{1,2}):(\d{2}).*?開演時刻\s*(\d{1,2}):(\d{2})/);
           if (timeMatch) {
             const oh = timeMatch[1].padStart(2, '0');
             const om = timeMatch[2];
@@ -532,45 +526,59 @@
             const sm = timeMatch[4];
             eventShowtimeInput.value = '開場 ' + oh + ':' + om + '／開演 ' + sh + ':' + sm;
 
-            // プルダウンの初期値も取得した時刻に合わせておく
             openHourSelect.value = oh;
             openMinuteSelect.value = om;
             startHourSelect.value = sh;
             startMinuteSelect.value = sm;
-          } else {
-            eventShowtimeInput.value = showtime;
+            gotCount++;
           }
-          gotCount++;
         }
 
-        const imgEl = doc.querySelector('.pg-event__event_image__figure img');
-        const imageUrl = imgEl
-          ? (imgEl.getAttribute('data-src') || imgEl.getAttribute('src') || '')
-          : '';
+        // 会場名: 日時と同じ見た目(専用クラス名なし)だが、日時のパターンを含まないもの。
+        // 日時のspanのすぐ後に出てくることが多いので、日時より後ろのものを優先して探す。
+        const venueEl = infoSpans.find(function (el) {
+          if (el === dateTimeEl) return false;
+          const t = el.textContent.trim();
+          if (!t || t.length > 40) return false;
+          if (/\d{4}\/\d{1,2}\/\d{1,2}/.test(t)) return false;
+          if (t.includes('開場時刻') || t.includes('開演時刻')) return false;
+          return true;
+        });
+        if (venueEl) {
+          const venueName = venueEl.textContent.trim();
+          if (venueName) {
+            eventVenueInput.value = venueName;
+            gotCount++;
+          }
+        }
+
+        // 画像URL: EventImage_image__8JwBv というクラスのimgタグから、
+        // Next.jsの画像最適化用URL(/_next/image?url=...)に包まれた本来の画像URLを取り出す
+        const imgEl = doc.querySelector('.EventImage_image__8JwBv');
+        let imageUrl = '';
+        if (imgEl) {
+          const rawSrc = imgEl.getAttribute('src') || '';
+          const urlMatch = rawSrc.match(/[?&]url=([^&]+)/);
+          if (urlMatch) {
+            imageUrl = decodeURIComponent(urlMatch[1]);
+          } else if (rawSrc) {
+            imageUrl = rawSrc;
+          }
+        }
         if (imageUrl) {
           eventImageInput.value = imageUrl;
           updateImagePreview();
           gotCount++;
         }
 
-        // 会場名は "maps.google.com" へのリンクを手がかりに取得する
-        const venueEl = doc.querySelector('a[href*="maps.google.com"]');
-        if (venueEl) {
-          const venueName = venueEl.textContent.trim();
-          const venueMapUrl = venueEl.getAttribute('href') || '';
-          if (venueName) {
-            eventVenueInput.value = venueName;
-            gotCount++;
-          }
-          if (venueMapUrl) {
-            eventVenueMapInput.value = venueMapUrl;
-            gotCount++;
-          }
-        }
-
-        const ticketNameEls = doc.querySelectorAll('.c-ordering-btn__content__name');
-        const ticketNames = Array.from(ticketNameEls)
-          .map(extractLeadingText)
+        // チケット種別: TicketTypeCard_ticketTypeContainer__ssRda というカードが種別の数だけ並んでいる。
+        // それぞれの中の、一番最初のspan(価格の前にある名前部分)を取り出す
+        const ticketTypeContainers = doc.querySelectorAll('.TicketTypeCard_ticketTypeContainer__ssRda');
+        const ticketNames = Array.from(ticketTypeContainers)
+          .map(function (container) {
+            const nameEl = container.querySelector('span.Typography_root__9AOcJ');
+            return nameEl ? nameEl.textContent.trim() : '';
+          })
           .filter(function (t, idx, arr) {
             return t && arr.indexOf(t) === idx; // 重複除去
           });
@@ -594,7 +602,6 @@
           ticketTypeSelect.value = ticketNames[0];
           gotCount++;
         } else if (ticketNames.length > 1) {
-          // 古い値が残っていると選択済みに見えて紛らわしいので一旦空にする
           eventTicketTypeInput.value = '';
           ticketTypeSelect.value = '';
           fetchStatus.textContent = 'チケット種別が複数見つかりました。プルダウンから選択するか入力してください。';
