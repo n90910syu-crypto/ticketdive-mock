@@ -55,8 +55,14 @@
 
           <div class="FlexBox_flex__8_6hs TicketCard_ticketDetails__NPa7d" style="flex-direction:column;gap:1.8rem;--notch-center-y:129.5px;">
             <div class="FlexBox_flex__8_6hs TicketCard_ticketInformation__mflE1" style="flex-direction:column;gap:1.2rem;">
-              <span class="Typography_root__9AOcJ Typography_ellipsis__3LJcA" id="detail-event-name" style="--color:var(--b1);font-size:2rem;line-height:150%;font-weight:600;">Platinum Halloween Fes 2026</span>
-              <span class="Typography_root__9AOcJ" id="detail-venue" style="--color:var(--b1);font-size:1.2rem;font-weight:600;">Spotify O-WEST</span>
+              <div id="detail-event-name-wrap" style="width:100%;overflow:hidden;white-space:nowrap;display:flex;">
+                <span class="ScrollAnimation_textScroll__uZ43R" style="display:inline-block;"><span id="detail-event-name" class="Typography_root__9AOcJ" style="--color:var(--b1);font-size:2rem;line-height:150%;font-weight:600;">Platinum Halloween Fes 2026</span></span>
+                <span class="ScrollAnimation_textScroll__uZ43R" style="display:inline-block;"><span class="Typography_root__9AOcJ" style="--color:var(--b1);font-size:2rem;line-height:150%;font-weight:600;">Platinum Halloween Fes 2026</span></span>
+              </div>
+              <div id="detail-venue-wrap" style="width:100%;overflow:hidden;white-space:nowrap;display:flex;">
+                <span class="ScrollAnimation_textScroll__uZ43R" style="display:inline-block;"><span id="detail-venue" class="Typography_root__9AOcJ" style="--color:var(--b1);font-size:1.2rem;font-weight:600;">Spotify O-WEST</span></span>
+                <span class="ScrollAnimation_textScroll__uZ43R" style="display:inline-block;"><span class="Typography_root__9AOcJ" style="--color:var(--b1);font-size:1.2rem;font-weight:600;">Spotify O-WEST</span></span>
+              </div>
 
               <div class="FlexBox_flex__8_6hs helvetica" style="align-items:center;gap:0.8rem;height:2.8rem;">
                 <span class="Typography_root__9AOcJ" id="detail-date-day" style="--color:var(--b1);font-size:2.8rem;font-weight:700;">10.30</span>
@@ -86,7 +92,10 @@
                     <div class="TicketCard_borderForInline__qojZ0"></div>
                     <span class="Typography_root__9AOcJ Typography_ellipsis__3LJcA" id="detail-favorite-artist" style="--color:var(--b1);font-size:1.2rem;font-weight:600;min-width:0;">ルージュブック</span>
                   </div>
-                  <span class="Typography_root__9AOcJ" id="detail-ticket-type" style="--color:var(--b1);font-size:1.6rem;font-weight:600;">前方チケット</span>
+                  <div id="detail-ticket-type-wrap" style="min-width:0;overflow:hidden;white-space:nowrap;display:flex;">
+                    <span class="ScrollAnimation_textScroll__uZ43R" style="display:inline-block;"><span id="detail-ticket-type" class="Typography_root__9AOcJ" style="--color:var(--b1);font-size:1.6rem;font-weight:600;">前方チケット</span></span>
+                    <span class="ScrollAnimation_textScroll__uZ43R" style="display:inline-block;"><span class="Typography_root__9AOcJ" style="--color:var(--b1);font-size:1.6rem;font-weight:600;">前方チケット</span></span>
+                  </div>
                 </div>
                 <div class="FlexBox_flex__8_6hs" style="background-color:rgb(210,158,31);border-radius:2px;white-space:nowrap;padding:1.1rem 0.8rem;">
                   <span class="Typography_root__9AOcJ" id="detail-reference-number" style="--color:var(--w1);font-weight:700;font-size:2.4rem;">S-34</span>
@@ -127,5 +136,47 @@
 
   </div>
 </div>
+<style>
+@keyframes ScrollAnimation_scrollAnimation__W7R5G { 0% { transform: translateX(0); } to { transform: translateX(-100%); } }
+.ScrollAnimation_textScroll__uZ43R { display: inline-block; animation: ScrollAnimation_scrollAnimation__W7R5G 10s linear 1s infinite both; }
+</style>
+<script>
+(function () {
+  function setupMarquee(wrapId, spanId) {
+    var wrap = document.getElementById(wrapId);
+    var span = document.getElementById(spanId);
+    if (!wrap || !span) return;
+    var originalHTML = wrap.innerHTML;
+    var isMarquee = false;
+    function check() {
+      if (span.scrollWidth > wrap.clientWidth + 1) {
+        if (!isMarquee) {
+          isMarquee = true;
+          wrap.style.display = 'flex';
+          var s1 = document.createElement('span');
+          s1.className = 'ScrollAnimation_textScroll__uZ43R';
+          s1.appendChild(span);
+          var s2 = document.createElement('span');
+          s2.className = 'ScrollAnimation_textScroll__uZ43R';
+          s2.appendChild(span.cloneNode(true));
+          wrap.innerHTML = '';
+          wrap.appendChild(s1);
+          wrap.appendChild(s2);
+        }
+      } else if (isMarquee) {
+        isMarquee = false;
+        wrap.style.display = '';
+        wrap.innerHTML = originalHTML;
+      }
+    }
+    window.addEventListener('load', check);
+    window.addEventListener('resize', check);
+    check();
+  }
+  setupMarquee('detail-event-name-wrap', 'detail-event-name');
+  setupMarquee('detail-venue-wrap', 'detail-venue');
+  setupMarquee('detail-ticket-type-wrap', 'detail-ticket-type');
+})();
+</script>
 </body>
 </html>
