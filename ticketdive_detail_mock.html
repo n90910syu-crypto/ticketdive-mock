@@ -152,19 +152,31 @@
     var span = document.getElementById(spanId);
     if (!wrap || !span) return;
     var text = span.textContent;
+    var styleAttr = span.getAttribute('style') || '';
     var originalHTML = wrap.innerHTML;
     var isMarquee = false;
+    function measureTextWidth() {
+      var probe = document.createElement('span');
+      probe.className = 'Typography_root__9AOcJ';
+      probe.setAttribute('style', styleAttr + ';position:absolute;visibility:hidden;white-space:nowrap;left:-9999px;top:-9999px;');
+      probe.textContent = text;
+      document.body.appendChild(probe);
+      var w = probe.scrollWidth;
+      document.body.removeChild(probe);
+      return w;
+    }
     function check() {
-      if (span.scrollWidth > wrap.clientWidth + 1) {
+      var textWidth = measureTextWidth();
+      if (textWidth > wrap.clientWidth + 1) {
         if (!isMarquee) {
           isMarquee = true;
           wrap.style.display = 'flex';
           var s1 = document.createElement('span');
           s1.className = 'ScrollAnimation_textScroll__uZ43R';
-          s1.innerHTML = '<span id="' + spanId + '" class="Typography_root__9AOcJ" style="' + span.getAttribute('style') + '">' + text + '&nbsp;</span>';
+          s1.innerHTML = '<span id="' + spanId + '" class="Typography_root__9AOcJ" style="' + styleAttr + '">' + text + '&nbsp;</span>';
           var s2 = document.createElement('span');
           s2.className = 'ScrollAnimation_textScroll__uZ43R';
-          s2.innerHTML = '<span class="Typography_root__9AOcJ" style="' + span.getAttribute('style') + '">' + text + '&nbsp;</span>';
+          s2.innerHTML = '<span class="Typography_root__9AOcJ" style="' + styleAttr + '">' + text + '&nbsp;</span>';
           wrap.innerHTML = '';
           wrap.appendChild(s1);
           wrap.appendChild(s2);
