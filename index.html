@@ -191,25 +191,17 @@
 
     <label for="userNameInput" style="margin-top:16px;">氏名</label>
 
-    <input id="userNameInput" type="text" placeholder="中村 海斗">
+    <input id="userNameInput" type="text" placeholder="中村海斗">
 
     <label for="userGroupInput" style="margin-top:16px;">お目当てのグループ</label>
 
     <input id="userGroupInput" type="text" placeholder="Peel the Apple">
 
-    <label for="userPhoneInput" style="margin-top:16px;">電話番号</label>
-
-    <input id="userPhoneInput" type="text" placeholder="090-3728-9947">
-
-    <label for="userAddressInput" style="margin-top:16px;">住所</label>
-
-    <input id="userAddressInput" type="text" placeholder="〒102-8353 東京都千代田区六番町4番地5 SME六番町ビル">
-
     <hr class="divider">
 
-    <label for="eventUrlInput">TIGETイベントURL</label>
+    <label for="eventUrlInput">Ticket Dive イベントURL</label>
 
-    <input id="eventUrlInput" type="text" placeholder="https://tiget.net/events/524277">
+    <input id="eventUrlInput" type="text" placeholder="https://ticketdive.com/event/">
 
     <a href="javascript:void(0);" target="_blank" rel="noopener" class="btn link disabled" id="openEventUrlLink" style="margin-top:8px; display:block;">
       このURLを開く
@@ -266,9 +258,6 @@
     <label for="eventVenueInput" style="margin-top:16px;">会場名</label>
     <input id="eventVenueInput" type="text" placeholder="自動取得 or 手入力">
 
-    <label for="eventVenueMapInput" style="margin-top:16px;">地図URL(任意)</label>
-    <input id="eventVenueMapInput" type="text" placeholder="自動取得 or 手入力(なくても可)">
-
     <div class="result-box show" id="resultBox">
       <img id="resultImage" src="" alt="" style="display:none;">
     </div>
@@ -300,8 +289,6 @@
     const input = document.getElementById('userInput');
     const nameInput = document.getElementById('userNameInput');
     const groupInput = document.getElementById('userGroupInput');
-    const phoneInput = document.getElementById('userPhoneInput');
-    const addressInput = document.getElementById('userAddressInput');
     const goLink = document.getElementById('goLink');
 
     // 保存済みがあれば復元、なければ初期値(プレースホルダーと同じ)を表示
@@ -312,17 +299,15 @@
     }
 
     restore(input, 'userInput', 'S');
-    restore(nameInput, 'userName', '中村 海斗');
+    restore(nameInput, 'userName', '中村海斗');
     restore(groupInput, 'userGroup', 'Peel the Apple');
-    restore(phoneInput, 'userPhone', '090-3728-9947');
-    restore(addressInput, 'userAddress', '〒102-8353 東京都千代田区六番町4番地5 SME六番町ビル');
 
     // イベント情報欄は毎回リセット(ページを開き直したら空の状態から始める)
 
     // GOは常に「保存」を押すまで無効。ページを開き直した時点で毎回無効に戻す。
 
     // ==========================
-    // TIGETイベント情報の自動取得
+    // Ticket Dive イベント情報の自動取得
     // ==========================
     const eventUrlInput = document.getElementById('eventUrlInput');
     const openEventUrlLink = document.getElementById('openEventUrlLink');
@@ -335,7 +320,6 @@
     const eventShowtimeInput = document.getElementById('eventShowtimeInput');
     const eventImageInput = document.getElementById('eventImageInput');
     const eventVenueInput = document.getElementById('eventVenueInput');
-    const eventVenueMapInput = document.getElementById('eventVenueMapInput');
     const resultImage = document.getElementById('resultImage');
     const saveAllBtn = document.getElementById('saveAllBtn');
 
