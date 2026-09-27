@@ -467,6 +467,12 @@
       // ここから5秒経ったら、まだ試していない方法があっても打ち切る
       const deadline = Date.now() + 5000;
 
+      function timeoutRejection(ms) {
+        return new Promise(function (_, reject) {
+          setTimeout(function () { reject(new Error('timeout')); }, ms);
+        });
+      }
+
       for (const attempt of attempts) {
         const remaining = deadline - Date.now();
         if (remaining <= 0) {
@@ -474,27 +480,32 @@
           break;
         }
         const controller = new AbortController();
-        const timer = setTimeout(function () { controller.abort(); }, remaining);
+        const abortTimer = setTimeout(function () { controller.abort(); }, remaining);
         try {
-          const response = await attempt(controller.signal);
+          // fetchが実際には止まらないケースもあるので、時間切れになったら
+          // fetchの完了を待たずに強制的に先へ進む
+          const response = await Promise.race([
+            attempt(controller.signal),
+            timeoutRejection(remaining)
+          ]);
           if (!response.ok) {
             throw new Error('ネットワークエラー: ' + response.status);
           }
-          const html = await response.text();
+          const html = await Promise.race([response.text(), timeoutRejection(Math.max(deadline - Date.now(), 0))]);
           if (!html || html.length < 100) {
             throw new Error('取得内容が空でした');
           }
           doc = new DOMParser().parseFromString(html, 'text/html');
           fetchError = null;
-          clearTimeout(timer);
+          clearTimeout(abortTimer);
           break;
         } catch (err) {
-          if (err && err.name === 'AbortError') {
+          if (err && (err.name === 'AbortError' || err.message === 'timeout')) {
             timedOut = true;
           }
           fetchError = err;
         } finally {
-          clearTimeout(timer);
+          clearTimeout(abortTimer);
         }
       }
 
