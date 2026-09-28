@@ -99,7 +99,7 @@
                     <span id="detail-ticket-type" class="Typography_root__9AOcJ" style="--color:var(--b1);font-size:1.6rem;font-weight:600;">前方チケット</span>
                   </div>
                 </div>
-                <div class="FlexBox_flex__8_6hs" style="background-color:rgb(210,158,31);border-radius:2px;white-space:nowrap;padding:1.1rem 0.8rem;">
+                <div class="FlexBox_flex__8_6hs" style="background-color:rgba(210,158,31,0.45);border-radius:2px;white-space:nowrap;padding:1.1rem 0.8rem;">
                   <span class="Typography_root__9AOcJ" id="detail-reference-number" style="--color:var(--w1);font-weight:700;font-size:2.4rem;">S-34</span>
                 </div>
               </div>
@@ -130,7 +130,7 @@
             </div>
           </a>
         </div>
-        <button class="Button_medium__spjE8 Button_customColor__USh7O" disabled style="height:5.6rem;width:25.2rem;border-radius:3.2rem;background-color:rgb(210,158,31);" type="button">
+        <button id="detail-enter-button" class="Button_medium__spjE8 Button_customColor__USh7O" disabled style="height:5.6rem;width:25.2rem;border-radius:3.2rem;background-color:rgba(210,158,31,0.45);" type="button">
           <div class="FlexBox_flex__8_6hs" style="flex-direction:column;gap:0.6rem;">
             <span class="Typography_root__9AOcJ" style="--color:var(--w1);font-size:1.6rem;">入場する</span>
             <span class="Typography_root__9AOcJ" style="--color:var(--w1);">(開場直前より利用可能)</span>
@@ -244,5 +244,10 @@
   setupMarquee('detail-ticket-type-wrap', 'detail-ticket-type');
 })();
 </script>
+<style>
+/* 入場ボタンは押せない状態(disabled)のまま、文字は薄くせず、塗りの色だけを整理番号バッジと同じ45%の透明度にする */
+#detail-enter-button:disabled,
+#detail-enter-button:disabled span { opacity: 1; }
+</style>
 </body>
 </html>
