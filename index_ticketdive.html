@@ -561,18 +561,60 @@
           }
         }
 
-        // 会場名: 日時と同じ見た目(専用クラス名なし)だが、日時のパターンを含まないもの。
-        // 日時のspanのすぐ後に出てくることが多いので、日時より後ろのものを優先して探す。
-        const venueEl = infoSpans.find(function (el) {
-          if (el === dateTimeEl) return false;
-          const t = el.textContent.trim();
-          if (!t || t.length > 40) return false;
-          if (/\d{4}\/\d{1,2}\/\d{1,2}/.test(t)) return false;
-          if (t.includes('開場時刻') || t.includes('開演時刻')) return false;
-          return true;
+        // 会場名(上のラベル方式で取れなかった場合の予備): 見た目(スタイル)の特徴で探す。
+        //   ・文字色が var(--b2)、行間が 175%、font-size の指定がない
+        //   ・日付・開場時刻の文字を含まない
+        // 条件に合うものが複数あれば、日時のspanに一番近い(ページ内で近くにある)ものを選ぶ。
+        // 最優先: 「会場」というラベルのspanのすぐ隣にあるspanが会場名
+        let venueDone = false;
+        const venueLabelEl = infoSpans.find(function (el) {
+          return el.textContent.trim() === '会場';
         });
-        if (venueEl) {
-          const venueName = venueEl.textContent.trim();
+        if (venueLabelEl && venueLabelEl.nextElementSibling) {
+          const labeledName = venueLabelEl.nextElementSibling.textContent.trim();
+          if (labeledName) {
+            eventVenueInput.value = labeledName;
+            gotCount++;
+            venueDone = true;
+          }
+        }
+
+        const venueCandidates = [];
+        infoSpans.forEach(function (el, idx) {
+          if (el === dateTimeEl) return;
+          const style = (el.getAttribute('style') || '').replace(/\s/g, '');
+          const t = el.textContent.trim();
+          if (!t || t.length > 60) return;
+          if (/\d{4}\/\d{1,2}\/\d{1,2}/.test(t)) return;
+          if (t.includes('開場時刻') || t.includes('開演時刻')) return;
+          if (style.indexOf('--color:var(--b2)') === -1) return;
+          if (style.indexOf('line-height:175%') === -1) return;
+          if (style.indexOf('font-size') !== -1) return;
+          venueCandidates.push({ el: el, idx: idx });
+        });
+        const dateIdx = infoSpans.indexOf(dateTimeEl);
+
+        // まず、日時のspanから親をたどっていき、最初に「会場名の候補を含む」まとまりを探す。
+        // (同じ見た目でも、別の場所にある文字を選んでしまうのを防ぐため)
+        let venuePool = venueCandidates;
+        if (dateTimeEl && venueCandidates.length > 1) {
+          let node = dateTimeEl.parentElement;
+          while (node && node !== doc.body) {
+            const inScope = venueCandidates.filter(function (c) { return node.contains(c.el); });
+            if (inScope.length > 0) {
+              venuePool = inScope;
+              break;
+            }
+            node = node.parentElement;
+          }
+        }
+
+        if (!venueDone && venuePool.length > 0) {
+          venuePool.sort(function (a, b) {
+            if (dateIdx === -1) return a.idx - b.idx;
+            return Math.abs(a.idx - dateIdx) - Math.abs(b.idx - dateIdx);
+          });
+          const venueName = venuePool[0].el.textContent.trim();
           if (venueName) {
             eventVenueInput.value = venueName;
             gotCount++;
