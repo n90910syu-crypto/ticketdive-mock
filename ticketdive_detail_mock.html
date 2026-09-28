@@ -111,7 +111,7 @@
                     <span id="detail-ticket-type" class="Typography_root__9AOcJ" style="--color:var(--b1);font-size:1.6rem;font-weight:600;">前方チケット</span>
                   </div>
                 </div>
-                <div class="FlexBox_flex__8_6hs" style="background-color:rgb(210,158,31);border-radius:2px;white-space:nowrap;padding:1.1rem 0.8rem;">
+                <div id="detail-reference-badge" class="FlexBox_flex__8_6hs" style="background-color:rgb(210,158,31);border-radius:2px;white-space:nowrap;padding:1.1rem 0.8rem;">
                   <span class="Typography_root__9AOcJ" id="detail-reference-number" style="--color:var(--w1);font-weight:700;font-size:2.4rem;">S-34</span>
                 </div>
               </div>
@@ -290,6 +290,49 @@
   setupMarquee('detail-event-name-wrap', 'detail-event-name');
   setupMarquee('detail-venue-wrap', 'detail-venue');
   setupMarquee('detail-ticket-type-wrap', 'detail-ticket-type');
+})();
+</script>
+<script>
+(function () {
+  // チケットの色(メインカラー)を、整理番号の接頭辞から決める。本物と同じ規則:
+  //   接頭辞が S(大文字小文字は区別しない) → 金色 #d29e1f 固定
+  //   それ以外 → 接頭辞の文字コードの合計を8で割った余りで、下のパレットから選ぶ
+  //   背景色 = メインカラー30% + 白70% の混色
+  var PALETTE = ['#682EFF', '#2D9CDB', '#E83B47', '#08A460', '#EC660F', '#3060FA', '#BB2FC7', '#D29E1F'];
+
+  function prefixOf(ref) {
+    var s = (ref || '').trim();
+    var i = s.indexOf('-');
+    if (i !== -1) return s.slice(0, i);          // 例: "BTO-5" → "BTO"
+    var m = /^[^0-9]*/.exec(s);                   // ハイフンがなければ、先頭の数字以外の部分
+    return m ? m[0] : '';
+  }
+  function mainColorOf(prefix) {
+    if (prefix.trim().toUpperCase() === 'S') return '#d29e1f';
+    var sum = 0;
+    for (var k = 0; k < prefix.length; k++) sum += prefix.charCodeAt(k);
+    return PALETTE[sum % 8];
+  }
+  function blendWithWhite(hex, t) {
+    var h = hex.replace('#', '');
+    var out = [0, 2, 4].map(function (p) {
+      var c = parseInt(h.substr(p, 2), 16);
+      return Math.round(t * c + (1 - t) * 255);
+    });
+    return 'rgb(' + out.join(',') + ')';
+  }
+
+  var refEl = document.getElementById('detail-reference-number');
+  if (!refEl) return;
+  var main = mainColorOf(prefixOf(refEl.textContent));
+  var sub = blendWithWhite(main, 0.3);
+
+  var badge = document.getElementById('detail-reference-badge');
+  var btn = document.getElementById('detail-enter-button');
+  var bg = document.getElementById('detail-bg-color');
+  if (badge) badge.style.backgroundColor = main;
+  if (btn) btn.style.backgroundColor = main;
+  if (bg) bg.style.backgroundColor = sub;
 })();
 </script>
 <script>
