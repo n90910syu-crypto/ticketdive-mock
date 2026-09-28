@@ -835,6 +835,9 @@
       localStorage.setItem('eventVenue', eventVenueInput.value.trim());
       localStorage.setItem('eventTicketType', eventTicketTypeInput.value.trim());
 
+      // 新しく保存したら、詳細ページの「入場済み」状態は解除して、最初から試せるようにする
+      localStorage.removeItem('ticketEnteredAt');
+
       goLink.classList.remove('disabled');
 
       alert('保存しました');

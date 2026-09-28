@@ -50,6 +50,16 @@
 
         <div class="FlexBox_flex__8_6hs TicketCard_ticketContainer__t1uuF" style="flex-direction:column;">
           <div class="FlexBox_flex__8_6hs TicketCard_imageContainer__5TB_9" style="justify-content:center;align-items:center;">
+            <div id="detail-entered-stamp" class="FlexBox_flex__8_6hs EnteredStamp_enteredStamp__p50Lf" style="align-items:center;justify-content:center;display:none;">
+              <span class="Typography_root__9AOcJ EnteredStamp_entered__ESp4H" style="font-weight:700;text-align:center;font-size:1.6rem;">入場済</span>
+              <span class="Typography_root__9AOcJ EnteredStamp_enteredRotate__aUN6c" style="font-weight:700;text-align:center;font-size:1.6rem;">入場済</span>
+              <div class="FlexBox_flex__8_6hs EnteredStamp_outerCircle__Nazi2" style="flex-direction:column;align-items:center;justify-content:center;">
+                <span id="detail-entered-time" class="Typography_root__9AOcJ EnteredStamp_time__qAyW0" style="font-weight:700;text-align:center;font-size:2.8rem;">0:00</span>
+              </div>
+              <div class="EnteredStamp_bigCircle__sNbPD"></div>
+              <div class="EnteredStamp_midCircle__orpBr"></div>
+              <div class="EnteredStamp_smallCircle__eqqZJ"></div>
+            </div>
             <div class="FlexBox_flex__8_6hs TicketCard_imageBlur__z9mJo">
               <img alt="背景画像" id="detail-image-blur" src="https://storage.googleapis.com/playyte-ticket-prod_event/RZGvyjmMZtMTzvi5yj4A_804182_1788147063564.webp" style="position:absolute;height:100%;width:100%;inset:0;object-fit:cover;">
             </div>
@@ -99,7 +109,7 @@
                     <span id="detail-ticket-type" class="Typography_root__9AOcJ" style="--color:var(--b1);font-size:1.6rem;font-weight:600;">前方チケット</span>
                   </div>
                 </div>
-                <div class="FlexBox_flex__8_6hs" style="background-color:rgba(210,158,31,0.45);border-radius:2px;white-space:nowrap;padding:1.1rem 0.8rem;">
+                <div class="FlexBox_flex__8_6hs" style="background-color:rgb(210,158,31);border-radius:2px;white-space:nowrap;padding:1.1rem 0.8rem;">
                   <span class="Typography_root__9AOcJ" id="detail-reference-number" style="--color:var(--w1);font-weight:700;font-size:2.4rem;">S-34</span>
                 </div>
               </div>
@@ -113,9 +123,9 @@
 
       </div>
 
-      <div class="FlexBox_flex__8_6hs TicketAction_lowerWrapper__pLuvt" style="justify-content:space-between;align-items:center;">
+      <div id="detail-lower-bar" class="FlexBox_flex__8_6hs TicketAction_lowerWrapper__pLuvt" style="justify-content:space-between;align-items:center;">
         <div class="FlexBox_flex__8_6hs" style="gap:2rem;">
-          <div class="FlexBox_flex__8_6hs TicketAction_pointer__jKbnK" style="align-items:center;flex-direction:column;gap:0.8rem;">
+          <div id="detail-distribute" class="FlexBox_flex__8_6hs TicketAction_pointer__jKbnK" style="align-items:center;flex-direction:column;gap:0.8rem;">
             <div class="Icon_outer__xwR_2" style="--color:var(--b1);--size:2rem;cursor:inherit;">
               <svg fill="none" viewBox="0 0 27 22" xmlns="http://www.w3.org/2000/svg"><path d="M6.781 1.35 1.367 6.895a1.25 1.25 0 0 0-.387.913q0 .548.344.902.355.345.903.344.526 0 .88-.355L5.3 6.41l1.235-1.418-.086 2.16V20.3q0 .548.355.902.365.366.913.365.548 0 .902-.365.355-.354.355-.902V7.15l-.065-2.159 1.214 1.418 2.202 2.288q.345.355.881.355.537 0 .88-.344.355-.354.355-.902 0-.527-.375-.913L8.65 1.35a1.23 1.23 0 0 0-.934-.42q-.548 0-.935.42M21.22 21.16l5.403-5.555q.387-.386.387-.913 0-.558-.355-.902-.343-.344-.891-.344-.527 0-.87.355L22.7 16.078l-1.235 1.429.075-2.16V2.2q0-.548-.355-.902a1.2 1.2 0 0 0-.902-.365q-.548 0-.913.365-.354.354-.354.902v13.149l.085 2.159-1.224-1.429-2.202-2.277a1.18 1.18 0 0 0-.87-.355q-.548 0-.903.344-.354.345-.354.902 0 .527.397.913l5.404 5.554q.386.408.923.408.548.012.946-.408" fill="currentColor"></path></svg>
             </div>
@@ -130,16 +140,44 @@
             </div>
           </a>
         </div>
-        <button id="detail-enter-button" class="Button_medium__spjE8 Button_customColor__USh7O" disabled style="height:5.6rem;width:25.2rem;border-radius:3.2rem;background-color:rgba(210,158,31,0.45);" type="button">
+        <button id="detail-enter-button" class="Button_medium__spjE8 Button_customColor__USh7O" style="height:5.6rem;width:25.2rem;border-radius:3.2rem;background-color:rgb(210,158,31);" type="button">
           <div class="FlexBox_flex__8_6hs" style="flex-direction:column;gap:0.6rem;">
             <span class="Typography_root__9AOcJ" style="--color:var(--w1);font-size:1.6rem;">入場する</span>
-            <span class="Typography_root__9AOcJ" style="--color:var(--w1);">(開場直前より利用可能)</span>
+            <span class="Typography_root__9AOcJ" style="--color:var(--w1);">(係員以外操作無効)</span>
           </div>
         </button>
+        <div id="detail-status-pill" class="TicketAction_statusPill__6TSMl" style="display:none;">
+          <span class="Typography_root__9AOcJ TicketAction_statusPillText__awXgI" style="--color:var(--w1);font-size:1.6rem;font-weight:600;">ボタンタップにより入場済</span>
+        </div>
       </div>
     </div>
     </div>
 
+  </div>
+</div>
+<!-- 入場の確認モーダル(本物と同じ文言・配置。最初は非表示) -->
+<div id="enter-modal" class="Modal_containerClose__aIAw3">
+  <div class="Modal_backdrop__FIFNe"></div>
+  <div class="Modal_modal__I0Mc2 Modal_center__YC0fv" style="width:calc(100% - 3.2rem);max-width:44rem;">
+    <div class="FlexBox_flex__8_6hs EnterModal_modalContent__wIYXm" style="flex-direction:column;gap:3.2rem;justify-content:center;align-items:center;">
+      <span id="enter-modal-close" class="EnterModal_closeButton__8mpTx">
+        <div class="Icon_outer__xwR_2" style="--color:var(--b1);--size:2.4rem;cursor:inherit;">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 5l14 14M19 5L5 19" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"></path></svg>
+        </div>
+      </span>
+      <div class="FlexBox_flex__8_6hs" style="flex-direction:column;justify-content:center;align-items:center;">
+        <span class="Typography_root__9AOcJ EnterModal_warning__IoqVI" style="--color:var(--red1);font-weight:700;line-height:175%;font-size:2rem;">必ず係員が操作してください</span>
+        <span class="Typography_root__9AOcJ" style="--color:var(--b1);font-weight:700;line-height:175%;font-size:2rem;">本当に入場しますか?</span>
+      </div>
+      <div class="FlexBox_flex__8_6hs">
+        <span class="Typography_root__9AOcJ" style="--color:var(--b1);line-height:175%;text-align:center;white-space:pre-line;">誤って入場するを押した場合、
+この操作は取り消せません。</span>
+      </div>
+      <div class="FlexBox_flex__8_6hs" style="gap:2.2rem;">
+        <button id="enter-modal-cancel" type="button" class="Button_medium__spjE8 Button_rectGrayWhite__y3CGq" style="width:14.4rem;height:4.6rem;"><span class="Typography_root__9AOcJ">キャンセル</span></button>
+        <button id="enter-modal-confirm" type="button" class="Button_medium__spjE8 Button_rectMain__ZdA5D" style="width:14.4rem;height:4.6rem;"><span class="Typography_root__9AOcJ" style="--color:var(--w1);">入場する</span></button>
+      </div>
+    </div>
   </div>
 </div>
 <style>
@@ -183,14 +221,14 @@
 
   var dateMatch = eventDate.match(/(\d{4})年(\d{1,2})月(\d{1,2})日\(([^)]+)\)/);
   if (dateMatch) {
-    setText('detail-date-day', dateMatch[2] + '.' + dateMatch[3].padStart(2, '0'));
+    setText('detail-date-day', parseInt(dateMatch[2], 10) + '.' + parseInt(dateMatch[3], 10));
     setText('detail-date-weekday', dateMatch[4]);
   }
 
   var openMatch = eventShowtime.match(/開場\s*(\d{1,2}):(\d{2})/);
-  if (openMatch) setText('detail-open-time', openMatch[1].padStart(2, '0') + ':' + openMatch[2]);
+  if (openMatch) setText('detail-open-time', parseInt(openMatch[1], 10) + ':' + openMatch[2]);
   var startMatch = eventShowtime.match(/開演\s*(\d{1,2}):(\d{2})/);
-  if (startMatch) setText('detail-start-time', startMatch[1].padStart(2, '0') + ':' + startMatch[2]);
+  if (startMatch) setText('detail-start-time', parseInt(startMatch[1], 10) + ':' + startMatch[2]);
 })();
 </script>
 <script>
@@ -244,10 +282,45 @@
   setupMarquee('detail-ticket-type-wrap', 'detail-ticket-type');
 })();
 </script>
-<style>
-/* 入場ボタンは押せない状態(disabled)のまま、文字は薄くせず、塗りの色だけを整理番号バッジと同じ45%の透明度にする */
-#detail-enter-button:disabled,
-#detail-enter-button:disabled span { opacity: 1; }
-</style>
+<script>
+(function () {
+  var KEY = 'ticketEnteredAt';           // 入場済みの時刻(H:mm)。押した後もページを開き直して残る
+  function $(id) { return document.getElementById(id); }
+  var modal = $('enter-modal');
+
+  function openModal() { modal.className = 'Modal_containerOpen__tEekK'; }
+  function closeModal() { modal.className = 'Modal_containerClose__aIAw3'; }
+
+  // 入場済みの見た目にする: スタンプを出し、下のバーを「ボタンタップにより入場済」に切り替える
+  function showEntered(time) {
+    $('detail-entered-time').textContent = time;
+    $('detail-entered-stamp').style.display = 'flex';
+    $('detail-distribute').style.display = 'none';
+    $('detail-enter-button').style.display = 'none';
+    $('detail-status-pill').style.display = '';
+    $('detail-lower-bar').classList.add('TicketAction_lowerWrapperWithStatus__8cr7r');
+  }
+
+  function nowHm() {
+    var d = new Date();
+    return d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0');   // 本物と同じ H:mm 表記
+  }
+
+  $('detail-enter-button').addEventListener('click', openModal);
+  $('enter-modal-close').addEventListener('click', closeModal);
+  $('enter-modal-cancel').addEventListener('click', closeModal);
+  // 暗幕(モーダルの外側)をタップしても閉じない(本物と同じ)
+  $('enter-modal-confirm').addEventListener('click', function () {
+    var t = nowHm();
+    try { localStorage.setItem(KEY, t); } catch (e) {}
+    closeModal();
+    showEntered(t);
+  });
+
+  var saved = '';
+  try { saved = localStorage.getItem(KEY) || ''; } catch (e) {}
+  if (saved) showEntered(saved);
+})();
+</script>
 </body>
 </html>
