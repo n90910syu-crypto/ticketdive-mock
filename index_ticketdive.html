@@ -430,7 +430,7 @@
     eventUrlInput.addEventListener('input', updateOpenEventUrlLink);
     updateOpenEventUrlLink();
 
-    fetchBtn.addEventListener('click', async function () {
+    async function runFetch() {
       const url = eventUrlInput.value.trim();
       if (!url) {
         fetchStatus.textContent = 'URLを入力してください';
@@ -450,7 +450,6 @@
       eventImageInput.value = '';
       updateImagePreview();
       eventVenueInput.value = '';
-      eventVenueMapInput.value = '';
 
       let doc = null;
       let fetchError = null;
@@ -515,7 +514,7 @@
 
       if (doc) {
         // イベント名: EventInfoUnit_name__P2ZEy というクラスを持つ見出し
-        const titleEl = doc.querySelector('.Typography_root__9AOcJ EventInfoUnit_name__P2ZEy');
+        const titleEl = doc.querySelector('.EventInfoUnit_name__P2ZEy');
         if (titleEl && titleEl.textContent.trim()) {
           eventTitleInput.value = titleEl.textContent.trim();
           gotCount++;
@@ -645,21 +644,49 @@
       } else {
         fetchStatus.textContent = 'ページは取得できましたが、対象の情報が見つかりませんでした。手入力してください。';
       }
+    }
+
+    fetchBtn.addEventListener('click', function () {
+      const startedAt = Date.now();
+      let finished = false;
+
+      // 経過秒数を表示して、止まっていないことが分かるようにする
+      const tick = setInterval(function () {
+        if (finished) return;
+        const sec = ((Date.now() - startedAt) / 1000).toFixed(1);
+        fetchStatus.textContent = '取得中… ' + sec + '秒(最大5秒)';
+      }, 200);
+
+      // 何があっても6秒で必ず打ち切って表示を戻す(最後の砦)
+      const watchdog = setTimeout(function () {
+        if (finished) return;
+        finished = true;
+        clearInterval(tick);
+        fetchStatus.textContent = '6秒経過したため打ち切りました。取得できていない項目は手入力してください。';
+      }, 6000);
+
+      runFetch()
+        .catch(function (err) {
+          if (finished) return;
+          fetchStatus.textContent = 'エラーが発生しました: ' + (err && err.message ? err.message : err);
+        })
+        .finally(function () {
+          finished = true;
+          clearInterval(tick);
+          clearTimeout(watchdog);
+        });
     });
 
     saveAllBtn.addEventListener('click', function () {
       localStorage.setItem('userInput', input.value.trim());
       localStorage.setItem('userName', nameInput.value.trim());
       localStorage.setItem('userGroup', groupInput.value.trim());
-      localStorage.setItem('userPhone', phoneInput.value.trim());
-      localStorage.setItem('userAddress', addressInput.value.trim());
 
       localStorage.setItem('eventTitle', eventTitleInput.value.trim());
       localStorage.setItem('eventDate', eventDateInput.value.trim());
       localStorage.setItem('eventShowtime', eventShowtimeInput.value.trim());
       localStorage.setItem('eventImage', eventImageInput.value.trim());
       localStorage.setItem('eventVenue', eventVenueInput.value.trim());
-      localStorage.setItem('eventVenueMapUrl', eventVenueMapInput.value.trim());
       localStorage.setItem('eventTicketType', eventTicketTypeInput.value.trim());
 
       goLink.classList.remove('disabled');
@@ -669,10 +696,10 @@
 
     // 保存後に何かの入力欄が変更されたら、再度保存するまでGOを無効化する
     const allInputs = [
-      input, nameInput, groupInput, phoneInput, addressInput,
+      input, nameInput, groupInput,
       eventUrlInput, eventTitleInput, eventTicketTypeInput,
       eventDateInput, eventShowtimeInput, eventImageInput,
-      eventVenueInput, eventVenueMapInput
+      eventVenueInput
     ];
     allInputs.forEach(function (el) {
       if (!el) return;
