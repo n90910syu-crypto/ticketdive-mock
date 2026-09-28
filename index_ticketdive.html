@@ -559,6 +559,14 @@
       if (st.oh !== undefined) {
         setTimeFields(st);
         result.count++;
+      } else if (st.sh !== undefined) {
+        // ツアーのようにカードで公演が並ぶページは、開演時刻しか載っていない(開場時刻は手入力)
+        const sh = String(st.sh).padStart(2, '0');
+        eventShowtimeInput.value = '開演 ' + sh + ':' + st.sm;
+        startHourSelect.value = sh;
+        startMinuteSelect.value = st.sm;
+        result.count++;
+        result.startOnly = true;
       } else {
         eventShowtimeInput.value = '';
       }
@@ -589,9 +597,11 @@
       return result;
     }
 
+    const START_ONLY_NOTE = '開場時刻はページに載っていません。「開場/開演」のところで開場の時刻を選んで「この時刻を反映」を押してください。';
     stageSelect.addEventListener('change', function () {
-      applyStage(Number(stageSelect.value));
+      const r = applyStage(Number(stageSelect.value));
       goLink.classList.add('disabled');
+      if (r.startOnly) fetchStatus.textContent = START_ONLY_NOTE;
     });
 
     // 「日時」ラベルの隣などのspanの文字から、1つの公演の情報を読み取る
@@ -603,11 +613,7 @@
       const st = {
         y: dm[1], m: dm[2], d: dm[3], weekday: dm[4] || '',
         venue: venueEl ? venueEl.textContent.trim() : '',
-        artists: castEl
-          ? Array.from(castEl.querySelectorAll('.EventInfoUnit_artistName__QVRvS'))
-              .map(function (el) { return el.textContent.trim(); })
-              .filter(function (x, idx, arr) { return x && arr.indexOf(x) === idx; })
-          : []
+        artists: artistsFromCast(castEl)
       };
       if (tm) { st.oh = tm[1]; st.om = tm[2]; st.sh = tm[3]; st.sm = tm[4]; }
       return st;
@@ -615,9 +621,71 @@
 
     function stageLabel(st) {
       const wd = st.weekday ? '(' + st.weekday + ')' : '';
-      let s = st.y + '/' + st.m + '/' + st.d + wd;
+      let s = (st.name ? st.name + '  ' : '') + st.y + '/' + st.m + '/' + st.d + wd;
       if (st.oh !== undefined) s += '  開場 ' + parseInt(st.oh, 10) + ':' + st.om + ' / 開演 ' + parseInt(st.sh, 10) + ':' + st.sm;
+      else if (st.sh !== undefined) s += '  開演 ' + parseInt(st.sh, 10) + ':' + st.sm;
+      if (st.status) s += '  [' + st.status + ']';
       return s;
+    }
+
+    // 「出演」欄の中から、アーティスト名を取り出す(名前用のクラスがなければ、リンクの文字を使う)
+    function artistsFromCast(castEl) {
+      if (!castEl) return [];
+      let els = Array.from(castEl.querySelectorAll('.EventInfoUnit_artistName__QVRvS'));
+      if (els.length === 0) els = Array.from(castEl.querySelectorAll('a'));
+      return els.map(function (el) { return el.textContent.trim(); })
+        .filter(function (x, idx, arr) { return x && arr.indexOf(x) === idx; });
+    }
+
+    // ---- 公演の一覧が「カード」で並ぶタイプ(ツアーなど)への対応 ----
+    // 各カードの文字が「9.24」「17:00」「受付終了」「東京公演」「Zepp DiverCity」の順に並ぶ。
+    // 年は載っていないので、先頭の「公演日時」の開始日から補う(年をまたぐツアーは翌年にする)
+    function collectTexts(node, out) {
+      if (!node) return out;
+      if (node.nodeType === 3) {
+        const t = (node.textContent || '').trim();
+        if (t) out.push(t);
+        return out;
+      }
+      if (node.nodeType !== 1) return out;
+      const tag = (node.tagName || '').toUpperCase();
+      if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT') return out;
+      const kids = node.childNodes || [];
+      for (let i = 0; i < kids.length; i++) collectTexts(kids[i], out);
+      return out;
+    }
+
+    function parseStageCards(doc, baseYear, baseMonth, headerVenueEl, headerCastEl) {
+      const texts = collectTexts(doc.body, []);
+      const dateRe = /^(\d{1,2})\.(\d{1,2})$/;
+      const timeRe = /^(\d{1,2}):(\d{2})$/;
+      const statusRe = /受付|販売|完売|抽選/;
+      const cast = artistsFromCast(headerCastEl);
+      const headerVenue = headerVenueEl ? headerVenueEl.textContent.trim() : '';
+      const out = [];
+      for (let i = 0; i < texts.length - 1; i++) {
+        const dm = dateRe.exec(texts[i]);
+        const tm = timeRe.exec(texts[i + 1]);
+        if (!dm || !tm) continue;
+        const month = Number(dm[1]), day = Number(dm[2]);
+        if (month < 1 || month > 12 || day < 1 || day > 31) continue;
+        let j = i + 2;
+        let status = '';
+        if (j < texts.length && statusRe.test(texts[j])) { status = texts[j]; j++; }
+        let name = '', venue = '';
+        if (j < texts.length && !dateRe.test(texts[j])) { name = texts[j]; j++; }
+        if (j < texts.length && !dateRe.test(texts[j])) { venue = texts[j]; j++; }
+        const year = month < baseMonth ? baseYear + 1 : baseYear;
+        out.push({
+          y: String(year), m: String(month), d: String(day),
+          weekday: weekdayKanji[new Date(year, month - 1, day).getDay()],
+          sh: tm[1], sm: tm[2],
+          name: name, status: status,
+          venue: venue || headerVenue, artists: cast
+        });
+        i = j - 1;
+      }
+      return out;
     }
 
     async function runFetch() {
@@ -712,6 +780,7 @@
       let multiChoiceNote = ''; // 候補が複数あって一番上を自動選択した項目名
       let prefixNote = '';      // 整理番号の接頭辞を取得できたか(画面に表示する)
       let stageNote = '';       // 公演(日程)が複数見つかったときの案内
+      let startOnlyNote = '';   // 開場時刻が取れなかったときの案内
 
       if (doc) {
         // イベント名: ページの<title>(「イベント名 | TicketDive」)が、チケットに出るイベント名と同じ。
@@ -756,8 +825,16 @@
           return parseStageEls(s.dateEl, s.venueEl || headerVenueEl, s.castEl || headerCastEl);
         }).filter(Boolean);
 
+        // 公演がカードで並ぶタイプ(ツアーなど): 先頭の「公演日時」(例: 2026/9/24(木)〜12/7(月))から年と開始月を補う
         if (parsed.length === 0) {
-          // 「日時」ラベルの公演がない: 1公演だけのページ(先頭の「公演日時」)、
+          const hd = headerDateEl ? headerDateEl.textContent.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/) : null;
+          const baseYear = hd ? Number(hd[1]) : new Date().getFullYear();
+          const baseMonth = hd ? Number(hd[2]) : 1;
+          parsed = parseStageCards(doc, baseYear, baseMonth, headerVenueEl, headerCastEl);
+        }
+
+        if (parsed.length === 0) {
+          // 「日時」ラベルの公演もカードもない: 1公演だけのページ(先頭の「公演日時」)、
           // それも見つからなければ、日付と「開場時刻」の文字を含むspanを探す
           let dateEl = headerDateEl;
           if (!dateEl) {
@@ -798,6 +875,7 @@
         const applied = applyStage(0);
         gotCount += applied.count;
         if (applied.multiArtists) multiChoiceNote += 'お目当てのグループ';
+        if (applied.startOnly) startOnlyNote = START_ONLY_NOTE;
         if (stagesData.length > 1) {
           stageNote = '公演(日程)が' + stagesData.length + '件見つかりました。一番上を自動で選択しています。違う場合は「公演(日程)」のプルダウンで変更してください。';
         }
@@ -886,6 +964,7 @@
         fetchStatus.textContent = gotCount + '件の項目を取得しました(5秒以内に取得できた分のみ反映)。空欄が残っていれば手入力してください。'
           + (multiChoiceNote ? '\n' + multiChoiceNote + 'は一番上を自動で選択しています。違う場合はプルダウンで変更してください。' : '')
           + (stageNote ? '\n' + stageNote : '')
+          + (startOnlyNote ? '\n' + startOnlyNote : '')
           + (prefixNote ? '\n' + prefixNote : '');
       } else if (timedOut) {
         fetchStatus.textContent = '5秒以内に取得できませんでした。空欄の項目は手入力してください。';
@@ -937,7 +1016,8 @@
       // 「S-」「A-」のように接頭辞だけで、番号(数字)がないものは未入力として扱う
       { el: input, label: '整理番号', isEmpty: function (v) { return !/[0-9]/.test(v); } },
       { el: eventDateInput, label: '日時' },
-      { el: eventShowtimeInput, label: '開場/開演' },
+      // 開場と開演の時刻が両方そろっていないものは未入力として扱う(開演だけの取得結果のとき、開場を手入力させるため)
+      { el: eventShowtimeInput, label: '開場/開演', isEmpty: function (v) { return !(/開場\s*\d+:\d+/.test(v) && /開演\s*\d+:\d+/.test(v)); } },
       { el: eventImageInput, label: '画像URL' },
       { el: eventVenueInput, label: '会場名' }
     ];
