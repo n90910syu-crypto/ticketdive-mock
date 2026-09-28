@@ -74,7 +74,7 @@
                     </div>
                   </div>
                   <div class="FlexBox_flex__8_6hs" style="flex-direction:column;gap:1.2rem;width:100%;">
-                    <span class="Typography_root__9AOcJ" style="font-weight:600;font-size:1.2rem;color:var(--b3);" id="ticket-1-datetime">2026年10月30日(金) 16:30開場</span>
+                    <span class="Typography_root__9AOcJ" style="font-weight:600;font-size:1.2rem;color:var(--b3);" id="ticket-1-datetime">10月30日 17:00</span>
                     <span class="Typography_root__9AOcJ Typography_ellipsis__3LJcA" style="font-weight:600;color:var(--b1);" id="ticket-1-title">PLATINUM HALLOWEEN FES 2026</span>
                     <div class="FlexBox_flex__8_6hs" style="justify-content:space-between;">
                       <span class="Typography_root__9AOcJ" style="color:var(--primary-color);font-weight:600;font-size:1.2rem;" id="ticket-1-type">前方チケット</span>
@@ -94,7 +94,7 @@
                     </div>
                   </div>
                   <div class="FlexBox_flex__8_6hs" style="flex-direction:column;gap:1.2rem;width:100%;">
-                    <span class="Typography_root__9AOcJ" style="font-weight:600;font-size:1.2rem;color:var(--b3);" id="ticket-2-datetime">2026年10月30日(金) 16:30開場</span>
+                    <span class="Typography_root__9AOcJ" style="font-weight:600;font-size:1.2rem;color:var(--b3);" id="ticket-2-datetime">10月30日 17:00</span>
                     <span class="Typography_root__9AOcJ Typography_ellipsis__3LJcA" style="font-weight:600;color:var(--b1);" id="ticket-2-title">PLATINUM HALLOWEEN FES 2026</span>
                     <div class="FlexBox_flex__8_6hs" style="justify-content:space-between;">
                       <span class="Typography_root__9AOcJ" style="color:var(--primary-color);font-weight:600;font-size:1.2rem;" id="ticket-2-type">前方チケット</span>
@@ -114,7 +114,7 @@
                     </div>
                   </div>
                   <div class="FlexBox_flex__8_6hs" style="flex-direction:column;gap:1.2rem;width:100%;">
-                    <span class="Typography_root__9AOcJ" style="font-weight:600;font-size:1.2rem;color:var(--b3);" id="ticket-3-datetime">2026年10月30日(金) 16:30開場</span>
+                    <span class="Typography_root__9AOcJ" style="font-weight:600;font-size:1.2rem;color:var(--b3);" id="ticket-3-datetime">10月30日 17:00</span>
                     <span class="Typography_root__9AOcJ Typography_ellipsis__3LJcA" style="font-weight:600;color:var(--b1);" id="ticket-3-title">PLATINUM HALLOWEEN FES 2026</span>
                     <div class="FlexBox_flex__8_6hs" style="justify-content:space-between;">
                       <span class="Typography_root__9AOcJ" style="color:var(--primary-color);font-weight:600;font-size:1.2rem;" id="ticket-3-type">前方チケット</span>
@@ -134,7 +134,7 @@
                     </div>
                   </div>
                   <div class="FlexBox_flex__8_6hs" style="flex-direction:column;gap:1.2rem;width:100%;">
-                    <span class="Typography_root__9AOcJ" style="font-weight:600;font-size:1.2rem;color:var(--b3);" id="ticket-4-datetime">2026年10月30日(金) 16:30開場</span>
+                    <span class="Typography_root__9AOcJ" style="font-weight:600;font-size:1.2rem;color:var(--b3);" id="ticket-4-datetime">10月30日 17:00</span>
                     <span class="Typography_root__9AOcJ Typography_ellipsis__3LJcA" style="font-weight:600;color:var(--b1);" id="ticket-4-title">PLATINUM HALLOWEEN FES 2026</span>
                     <div class="FlexBox_flex__8_6hs" style="justify-content:space-between;">
                       <span class="Typography_root__9AOcJ" style="color:var(--primary-color);font-weight:600;font-size:1.2rem;" id="ticket-4-type">前方チケット</span>
@@ -193,13 +193,13 @@
     if (typeEl) typeEl.textContent = eventTicketType;
   }
 
-  // 日付+開場時刻をまとめて「◯◯年◯月◯日(◯) HH:MM開場」の形にする
+  // 日付+開演時刻を「◯月◯日 HH:MM」の形にする
   var dateMatch = eventDate.match(/(\d{4})年(\d{1,2})月(\d{1,2})日\(([^)]+)\)/);
-  var openMatch = eventShowtime.match(/開場\s*(\d{1,2}):(\d{2})/);
+  var startMatch = eventShowtime.match(/開演\s*(\d{1,2}):(\d{2})/);
   if (dateMatch) {
-    var line = dateMatch[1] + '年' + dateMatch[2] + '月' + dateMatch[3] + '日(' + dateMatch[4] + ')';
-    if (openMatch) {
-      line += ' ' + openMatch[1].padStart(2, '0') + ':' + openMatch[2] + '開場';
+    var line = parseInt(dateMatch[2], 10) + '月' + parseInt(dateMatch[3], 10) + '日';
+    if (startMatch) {
+      line += ' ' + startMatch[1].padStart(2, '0') + ':' + startMatch[2];
     }
     var datetimeEl = document.getElementById('ticket-1-datetime');
     if (datetimeEl) datetimeEl.textContent = line;
