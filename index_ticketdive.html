@@ -214,6 +214,11 @@
     <label for="eventTitleInput" style="margin-top:16px;">イベントタイトル</label>
     <input id="eventTitleInput" type="text" placeholder="自動取得 or 手入力">
 
+    <div id="stageRow" style="display:none;">
+      <label for="stageSelect" style="margin-top:16px;">公演(日程)</label>
+      <select id="stageSelect" style="margin-bottom:8px;"></select>
+    </div>
+
     <label for="userGroupInput" style="margin-top:16px;">お目当てのグループ</label>
     <select id="groupSelect" style="display:none; margin-bottom:8px;">
       <option value="">-- 候補から選ぶ --</option>
@@ -297,6 +302,8 @@
     const nameInput = document.getElementById('userNameInput');
     const groupInput = document.getElementById('userGroupInput');
     const groupSelect = document.getElementById('groupSelect');
+    const stageRow = document.getElementById('stageRow');
+    const stageSelect = document.getElementById('stageSelect');
     const goLink = document.getElementById('goLink');
 
     // 保存済みがあれば復元、なければ初期値(プレースホルダーと同じ)を表示
@@ -516,6 +523,103 @@
     eventUrlInput.addEventListener('input', updateOpenEventUrlLink);
     updateOpenEventUrlLink();
 
+    // ---- 公演(日程)が複数あるイベント(3日間開催など)への対応 ----
+    // 取得した公演の一覧。1つの公演ぶんが { 日付, 開場・開演の時刻, 会場, 出演者の一覧 }
+    let stagesData = [];
+
+    function setDateFields(st) {
+      const m = String(st.m).padStart(2, '0');
+      const d = String(st.d).padStart(2, '0');
+      const weekday = st.weekday || weekdayKanji[new Date(Number(st.y), Number(st.m) - 1, Number(st.d)).getDay()];
+      eventDateInput.value = st.y + '年' + m + '月' + d + '日(' + weekday + ')';
+      dateYearSelect.value = String(st.y);
+      dateMonthSelect.value = m;
+      dateDaySelect.value = d;
+    }
+
+    function setTimeFields(st) {
+      const oh = String(st.oh).padStart(2, '0');
+      const sh = String(st.sh).padStart(2, '0');
+      eventShowtimeInput.value = '開場 ' + oh + ':' + st.om + '／開演 ' + sh + ':' + st.sm;
+      openHourSelect.value = oh;
+      openMinuteSelect.value = st.om;
+      startHourSelect.value = sh;
+      startMinuteSelect.value = st.sm;
+    }
+
+    // 選んだ公演の内容(日付・時刻・会場・出演者)を、画面の各欄に反映する
+    function applyStage(i) {
+      const result = { count: 0, multiArtists: false };
+      const st = stagesData[i];
+      if (!st) return result;
+
+      setDateFields(st);
+      result.count++;
+
+      if (st.oh !== undefined) {
+        setTimeFields(st);
+        result.count++;
+      } else {
+        eventShowtimeInput.value = '';
+      }
+
+      if (st.venue) {
+        eventVenueInput.value = st.venue;
+        result.count++;
+      }
+
+      groupSelect.innerHTML = '<option value="">-- 候補から選ぶ --</option>';
+      st.artists.forEach(function (name) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        groupSelect.appendChild(opt);
+      });
+      if (st.artists.length > 0) {
+        groupSelect.style.display = 'block';
+        // 一番上をデフォルトで選択(必要なら自分で変更する)
+        groupInput.value = st.artists[0];
+        groupSelect.value = st.artists[0];
+        result.count++;
+        if (st.artists.length > 1) result.multiArtists = true;
+      } else {
+        groupSelect.style.display = 'none';
+        groupInput.value = '';
+      }
+      return result;
+    }
+
+    stageSelect.addEventListener('change', function () {
+      applyStage(Number(stageSelect.value));
+      goLink.classList.add('disabled');
+    });
+
+    // 「日時」ラベルの隣などのspanの文字から、1つの公演の情報を読み取る
+    function parseStageEls(dateEl, venueEl, castEl) {
+      const t = dateEl ? dateEl.textContent : '';
+      const dm = t.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})(?:\(([^)]+)\))?/);
+      if (!dm) return null;
+      const tm = t.match(/開場時刻\s*(\d{1,2}):(\d{2})[\s\S]*?開演時刻\s*(\d{1,2}):(\d{2})/);
+      const st = {
+        y: dm[1], m: dm[2], d: dm[3], weekday: dm[4] || '',
+        venue: venueEl ? venueEl.textContent.trim() : '',
+        artists: castEl
+          ? Array.from(castEl.querySelectorAll('.EventInfoUnit_artistName__QVRvS'))
+              .map(function (el) { return el.textContent.trim(); })
+              .filter(function (x, idx, arr) { return x && arr.indexOf(x) === idx; })
+          : []
+      };
+      if (tm) { st.oh = tm[1]; st.om = tm[2]; st.sh = tm[3]; st.sm = tm[4]; }
+      return st;
+    }
+
+    function stageLabel(st) {
+      const wd = st.weekday ? '(' + st.weekday + ')' : '';
+      let s = st.y + '/' + st.m + '/' + st.d + wd;
+      if (st.oh !== undefined) s += '  開場 ' + parseInt(st.oh, 10) + ':' + st.om + ' / 開演 ' + parseInt(st.sh, 10) + ':' + st.sm;
+      return s;
+    }
+
     async function runFetch() {
       const url = eventUrlInput.value.trim();
       if (!url) {
@@ -532,6 +636,9 @@
       ticketTypeSelect.value = '';
       ticketTypeSelect.style.display = 'none';
       ticketPrefixMap = {};
+      stagesData = [];
+      stageSelect.innerHTML = '';
+      stageRow.style.display = 'none';
       groupInput.value = '';
       groupSelect.innerHTML = '<option value="">-- 候補から選ぶ --</option>';
       groupSelect.value = '';
@@ -604,155 +711,95 @@
       let gotCount = 0;
       let multiChoiceNote = ''; // 候補が複数あって一番上を自動選択した項目名
       let prefixNote = '';      // 整理番号の接頭辞を取得できたか(画面に表示する)
+      let stageNote = '';       // 公演(日程)が複数見つかったときの案内
 
       if (doc) {
-        // イベント名: EventInfoUnit_name__P2ZEy というクラスを持つ見出し
-        const titleEl = doc.querySelector('.EventInfoUnit_name__P2ZEy');
-        if (titleEl && titleEl.textContent.trim()) {
-          eventTitleInput.value = titleEl.textContent.trim();
+        // イベント名: ページの<title>(「イベント名 | TicketDive」)が、チケットに出るイベント名と同じ。
+        // 公演(日程)が複数あるページでは、見出しのクラスが公演ごとの名前(【10月2日】…)になるため、<title>を優先する。
+        let eventName = '';
+        const titleTag = doc.querySelector('title');
+        if (titleTag) eventName = titleTag.textContent.replace(/\s*\|\s*TicketDive\s*$/, '').trim();
+        if (!eventName) {
+          const titleEl = doc.querySelector('.EventInfoUnit_name__P2ZEy');
+          if (titleEl) eventName = titleEl.textContent.trim();
+        }
+        if (eventName) {
+          eventTitleInput.value = eventName;
           gotCount++;
         }
 
-        // 日時・開場時刻・開演時刻: 「2026/10/30(金)」「開場時刻 16:30 / 開演時刻 17:00」のような
-        // テキストが1つのspanにまとまっている(専用クラス名がないので中身のパターンで探す)
+        // 公演(日程)・会場・出演者: ラベル(「日時」「公演日時」「会場」「出演」)のすぐ隣のspanから取る。
+        //   ・1公演だけのページ: 先頭の「公演日時」に、日付と開場・開演の時刻がまとまっている
+        //   ・複数公演のページ: 先頭の「公演日時」は日付の範囲だけ。公演ごとに「日時」「会場」「出演」が並ぶ
         const infoSpans = Array.from(doc.querySelectorAll('span.Typography_root__9AOcJ'));
-        // 最優先: 「公演日時」というラベルのspanのすぐ隣にあるspanが日時
-        // (ラベルが見つからない場合は、日付と「開場時刻」の文字を含むspanを探す)
-        const dateLabelEl = infoSpans.find(function (el) {
-          return el.textContent.trim() === '公演日時';
-        });
-        let dateTimeEl = (dateLabelEl && dateLabelEl.nextElementSibling) ? dateLabelEl.nextElementSibling : null;
-        if (!dateTimeEl) {
-          dateTimeEl = infoSpans.find(function (el) {
-            const t = el.textContent;
-            return /\d{4}\/\d{1,2}\/\d{1,2}/.test(t) && t.includes('開場時刻');
-          });
-        }
-
-        if (dateTimeEl) {
-          const rawText = dateTimeEl.textContent;
-
-          const dateMatch = rawText.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})(?:\(([^)]+)\))?/);
-          if (dateMatch) {
-            const y = dateMatch[1];
-            const m = dateMatch[2].padStart(2, '0');
-            const d = dateMatch[3].padStart(2, '0');
-            const weekday = dateMatch[4] || weekdayKanji[new Date(Number(y), Number(m) - 1, Number(d)).getDay()];
-            eventDateInput.value = y + '年' + m + '月' + d + '日(' + weekday + ')';
-
-            dateYearSelect.value = y;
-            dateMonthSelect.value = m;
-            dateDaySelect.value = d;
-            gotCount++;
-          }
-
-          const timeMatch = rawText.match(/開場時刻\s*(\d{1,2}):(\d{2}).*?開演時刻\s*(\d{1,2}):(\d{2})/);
-          if (timeMatch) {
-            const oh = timeMatch[1].padStart(2, '0');
-            const om = timeMatch[2];
-            const sh = timeMatch[3].padStart(2, '0');
-            const sm = timeMatch[4];
-            eventShowtimeInput.value = '開場 ' + oh + ':' + om + '／開演 ' + sh + ':' + sm;
-
-            openHourSelect.value = oh;
-            openMinuteSelect.value = om;
-            startHourSelect.value = sh;
-            startMinuteSelect.value = sm;
-            gotCount++;
-          }
-        }
-
-        // 会場名(上のラベル方式で取れなかった場合の予備): 見た目(スタイル)の特徴で探す。
-        //   ・文字色が var(--b2)、行間が 175%、font-size の指定がない
-        //   ・日付・開場時刻の文字を含まない
-        // 条件に合うものが複数あれば、日時のspanに一番近い(ページ内で近くにある)ものを選ぶ。
-        // 最優先: 「会場」というラベルのspanのすぐ隣にあるspanが会場名
-        let venueDone = false;
-        const venueLabelEl = infoSpans.find(function (el) {
-          return el.textContent.trim() === '会場';
-        });
-        if (venueLabelEl && venueLabelEl.nextElementSibling) {
-          const labeledName = venueLabelEl.nextElementSibling.textContent.trim();
-          if (labeledName) {
-            eventVenueInput.value = labeledName;
-            gotCount++;
-            venueDone = true;
-          }
-        }
-
-        const venueCandidates = [];
-        infoSpans.forEach(function (el, idx) {
-          if (el === dateTimeEl) return;
-          const style = (el.getAttribute('style') || '').replace(/\s/g, '');
+        const nextOf = function (el) { return el && el.nextElementSibling ? el.nextElementSibling : null; };
+        const rawStages = [];
+        let cur = null;
+        let headerDateEl = null, headerVenueEl = null, headerCastEl = null;
+        infoSpans.forEach(function (el) {
           const t = el.textContent.trim();
-          if (!t || t.length > 60) return;
-          if (/\d{4}\/\d{1,2}\/\d{1,2}/.test(t)) return;
-          if (t.includes('開場時刻') || t.includes('開演時刻')) return;
-          if (style.indexOf('--color:var(--b2)') === -1) return;
-          if (style.indexOf('line-height:175%') === -1) return;
-          if (style.indexOf('font-size') !== -1) return;
-          venueCandidates.push({ el: el, idx: idx });
-        });
-        const dateIdx = infoSpans.indexOf(dateTimeEl);
-
-        // まず、日時のspanから親をたどっていき、最初に「会場名の候補を含む」まとまりを探す。
-        // (同じ見た目でも、別の場所にある文字を選んでしまうのを防ぐため)
-        let venuePool = venueCandidates;
-        if (dateTimeEl && venueCandidates.length > 1) {
-          let node = dateTimeEl.parentElement;
-          while (node && node !== doc.body) {
-            const inScope = venueCandidates.filter(function (c) { return node.contains(c.el); });
-            if (inScope.length > 0) {
-              venuePool = inScope;
-              break;
-            }
-            node = node.parentElement;
+          if (t === '日時') {
+            cur = { dateEl: nextOf(el), venueEl: null, castEl: null };
+            rawStages.push(cur);
+          } else if (t === '会場') {
+            if (cur) { if (!cur.venueEl) cur.venueEl = nextOf(el); }
+            else if (!headerVenueEl) headerVenueEl = nextOf(el);
+          } else if (t === '出演') {
+            if (cur) { if (!cur.castEl) cur.castEl = nextOf(el); }
+            else if (!headerCastEl) headerCastEl = nextOf(el);
+          } else if (t === '公演日時' && !headerDateEl) {
+            headerDateEl = nextOf(el);
           }
-        }
-
-        if (!venueDone && venuePool.length > 0) {
-          venuePool.sort(function (a, b) {
-            if (dateIdx === -1) return a.idx - b.idx;
-            return Math.abs(a.idx - dateIdx) - Math.abs(b.idx - dateIdx);
-          });
-          const venueName = venuePool[0].el.textContent.trim();
-          if (venueName) {
-            eventVenueInput.value = venueName;
-            gotCount++;
-          }
-        }
-
-        // 出演者(お目当てのグループの候補): 「出演」ラベルの隣のspanの中にあるアーティスト名
-        const castLabelEl = infoSpans.find(function (el) {
-          return el.textContent.trim() === '出演';
         });
-        let artistEls = [];
-        if (castLabelEl && castLabelEl.nextElementSibling) {
-          artistEls = Array.from(castLabelEl.nextElementSibling.querySelectorAll('.EventInfoUnit_artistName__QVRvS'));
+
+        let parsed = rawStages.map(function (s) {
+          return parseStageEls(s.dateEl, s.venueEl || headerVenueEl, s.castEl || headerCastEl);
+        }).filter(Boolean);
+
+        if (parsed.length === 0) {
+          // 「日時」ラベルの公演がない: 1公演だけのページ(先頭の「公演日時」)、
+          // それも見つからなければ、日付と「開場時刻」の文字を含むspanを探す
+          let dateEl = headerDateEl;
+          if (!dateEl) {
+            dateEl = infoSpans.find(function (el) {
+              const t = el.textContent;
+              return /\d{4}\/\d{1,2}\/\d{1,2}/.test(t) && t.includes('開場時刻');
+            }) || null;
+          }
+          const one = parseStageEls(dateEl, headerVenueEl, headerCastEl);
+          if (one) parsed = [one];
         }
-        if (artistEls.length === 0) {
-          artistEls = Array.from(doc.querySelectorAll('.EventInfoUnit_artistName__QVRvS'));
-        }
-        const artistNames = artistEls
+
+        // 同じ日付・時刻の公演はまとめる(3日通し券は、初日と同じ内容が表示されるため)
+        const seenStage = {};
+        stagesData = parsed.filter(function (st) {
+          const key = stageLabel(st);
+          if (seenStage[key]) return false;
+          seenStage[key] = true;
+          return true;
+        });
+
+        // 出演者が公演から取れなかったときの予備: ページ内のアーティスト名をすべて
+        const allArtists = Array.from(doc.querySelectorAll('.EventInfoUnit_artistName__QVRvS'))
           .map(function (el) { return el.textContent.trim(); })
-          .filter(function (t, idx, arr) { return t && arr.indexOf(t) === idx; });
+          .filter(function (x, idx, arr) { return x && arr.indexOf(x) === idx; });
+        stagesData.forEach(function (st) { if (st.artists.length === 0) st.artists = allArtists; });
 
-        groupSelect.innerHTML = '<option value="">-- 候補から選ぶ --</option>';
-        artistNames.forEach(function (name) {
+        stageSelect.innerHTML = '';
+        stagesData.forEach(function (st, i) {
           const opt = document.createElement('option');
-          opt.value = name;
-          opt.textContent = name;
-          groupSelect.appendChild(opt);
+          opt.value = String(i);
+          opt.textContent = stageLabel(st);
+          stageSelect.appendChild(opt);
         });
-        if (artistNames.length > 0) {
-          groupSelect.style.display = 'block';
-          // 一番上をデフォルトで選択(必要なら自分で変更する)
-          groupInput.value = artistNames[0];
-          groupSelect.value = artistNames[0];
-          gotCount++;
-          if (artistNames.length > 1) multiChoiceNote += 'お目当てのグループ';
-        } else {
-          groupSelect.style.display = 'none';
+        stageRow.style.display = stagesData.length > 1 ? 'block' : 'none';
+
+        // 一番上の公演をデフォルトで選択して、日付・時刻・会場・出演者を反映する(変更は「公演(日程)」で)
+        const applied = applyStage(0);
+        gotCount += applied.count;
+        if (applied.multiArtists) multiChoiceNote += 'お目当てのグループ';
+        if (stagesData.length > 1) {
+          stageNote = '公演(日程)が' + stagesData.length + '件見つかりました。一番上を自動で選択しています。違う場合は「公演(日程)」のプルダウンで変更してください。';
         }
 
         // 画像URL: EventImage_image__8JwBv というクラスのimgタグから、
@@ -777,7 +824,7 @@
         // チケット種別: TicketTypeCard_ticketTypeContainer__ssRda というカードが種別の数だけ並んでいる。
         // それぞれの中の、一番最初のspan(価格の前にある名前部分)を取り出す
         const ticketTypeContainers = doc.querySelectorAll('.TicketTypeCard_ticketTypeContainer__ssRda');
-        const ticketNames = Array.from(ticketTypeContainers)
+        let ticketNames = Array.from(ticketTypeContainers)
           .map(function (container) {
             const nameEl = container.querySelector('span.Typography_root__9AOcJ');
             return nameEl ? nameEl.textContent.trim() : '';
@@ -785,6 +832,17 @@
           .filter(function (t, idx, arr) {
             return t && arr.indexOf(t) === idx; // 重複除去
           });
+
+        // 予備: 複数公演のページなどでは、チケット種別の一覧が最初は画面に出ていない(「選択する」を押した後に出る)。
+        // そのときは、ページに埋め込まれたデータの中の「名前と接頭辞を持つ項目」(=チケット種別)を使う。
+        const prefixPairs = extractPrefixPairs(doc);
+        let ticketFromData = false;
+        if (ticketNames.length === 0) {
+          ticketNames = prefixPairs
+            .map(function (p) { return p.name; })
+            .filter(function (n, idx, arr) { return n && arr.indexOf(n) === idx; });
+          ticketFromData = ticketNames.length > 0;
+        }
 
         ticketTypeSelect.innerHTML = '<option value="">-- 候補から選ぶ --</option>';
         ticketNames.forEach(function (name) {
@@ -811,19 +869,23 @@
         }
 
         // チケット種別ごとの整理番号の接頭辞を取得して、今選んでいるチケット種別の分を整理番号に反映する
-        ticketPrefixMap = buildPrefixMap(extractPrefixPairs(doc), ticketNames);
+        ticketPrefixMap = buildPrefixMap(prefixPairs, ticketNames);
         const prefixEntries = Object.keys(ticketPrefixMap);
         if (prefixEntries.length > 0) {
-          prefixNote = '整理番号の接頭辞: ' + prefixEntries.map(function (n) { return n + '=' + ticketPrefixMap[n]; }).join(' / ');
+          prefixNote = '整理番号の接頭辞: ' + prefixEntries.map(function (n) { return n + '=' + ticketPrefixMap[n]; }).join(' / ')
+            + (ticketFromData ? '\n(チケット種別は、ページ内のデータから取得しました)' : '');
           syncPrefixWithTicketType();
         } else if (ticketNames.length > 0) {
           prefixNote = '整理番号の接頭辞は取得できませんでした。手入力してください。';
+        } else {
+          prefixNote = 'チケット種別と整理番号の接頭辞は取得できませんでした。手入力してください。';
         }
       }
 
       if (doc) {
         fetchStatus.textContent = gotCount + '件の項目を取得しました(5秒以内に取得できた分のみ反映)。空欄が残っていれば手入力してください。'
           + (multiChoiceNote ? '\n' + multiChoiceNote + 'は一番上を自動で選択しています。違う場合はプルダウンで変更してください。' : '')
+          + (stageNote ? '\n' + stageNote : '')
           + (prefixNote ? '\n' + prefixNote : '');
       } else if (timedOut) {
         fetchStatus.textContent = '5秒以内に取得できませんでした。空欄の項目は手入力してください。';
