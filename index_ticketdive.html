@@ -922,6 +922,7 @@
       // 新しく保存したら、詳細ページの「入場済み」状態は解除して、最初から試せるようにする
       localStorage.removeItem('ticketEnteredAt');
       localStorage.removeItem('ticketColorOverride');
+      localStorage.removeItem('ticketReferenceOverride');
 
       goLink.classList.remove('disabled');
 

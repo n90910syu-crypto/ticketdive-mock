@@ -111,7 +111,7 @@
                     <span id="detail-ticket-type" class="Typography_root__9AOcJ" style="--color:var(--b1);font-size:1.6rem;font-weight:600;">前方チケット</span>
                   </div>
                 </div>
-                <div id="detail-reference-badge" class="FlexBox_flex__8_6hs" style="background-color:rgb(210,158,31);border-radius:2px;white-space:nowrap;padding:1.1rem 0.8rem;">
+                <div id="detail-reference-badge" class="FlexBox_flex__8_6hs" style="background-color:rgb(210,158,31);border-radius:2px;white-space:nowrap;padding:1.1rem 0.8rem;touch-action:manipulation;-webkit-user-select:none;user-select:none;">
                   <span class="Typography_root__9AOcJ" id="detail-reference-number" style="--color:var(--w1);font-weight:700;font-size:2.4rem;">S-34</span>
                 </div>
               </div>
@@ -207,6 +207,21 @@
     </div>
   </div>
 </div>
+<!-- 整理番号を変更する画面(整理番号を3回続けてタップすると開く。この模倣用の機能) -->
+<div id="ref-editor" class="Modal_containerClose__aIAw3">
+  <div id="ref-editor-backdrop" class="Modal_backdrop__FIFNe"></div>
+  <div class="Modal_modal__I0Mc2 Modal_center__YC0fv" style="width:calc(100% - 3.2rem);max-width:44rem;">
+    <div class="FlexBox_flex__8_6hs" style="background:var(--w1);padding:2.4rem 1.6rem;flex-direction:column;gap:1.6rem;align-items:center;border-radius:1.2rem;">
+      <span class="Typography_root__9AOcJ" style="--color:var(--b1);font-size:1.8rem;font-weight:700;">整理番号を変更</span>
+      <input id="ref-editor-input" type="text" autocomplete="off" style="width:100%;box-sizing:border-box;height:4.8rem;font-size:2rem;font-weight:700;text-align:center;border:1px solid #ccc;border-radius:1.2rem;color:var(--b1);">
+      <span id="ref-editor-hint" class="Typography_root__9AOcJ" style="--color:#e53935;font-size:1.2rem;min-height:1.6rem;"></span>
+      <div class="FlexBox_flex__8_6hs" style="gap:1.2rem;">
+        <button id="ref-editor-cancel" type="button" class="Button_medium__spjE8 Button_rectGrayWhite__y3CGq" style="width:14.4rem;height:4.6rem;"><span class="Typography_root__9AOcJ">キャンセル</span></button>
+        <button id="ref-editor-ok" type="button" class="Button_medium__spjE8 Button_rectMain__ZdA5D" style="width:14.4rem;height:4.6rem;"><span class="Typography_root__9AOcJ" style="--color:var(--w1);">変更する</span></button>
+      </div>
+    </div>
+  </div>
+</div>
 <style>
 @keyframes ScrollAnimation_scrollAnimation__W7R5G { 0% { transform: translateX(0); } to { transform: translateX(-100%); } }
 .ScrollAnimation_textScroll__uZ43R { display: inline-block; white-space: nowrap; animation: ScrollAnimation_scrollAnimation__W7R5G 10s linear 1s infinite both; }
@@ -238,6 +253,8 @@
   setText('detail-favorite-artist', userGroup);
   setText('detail-ticket-type', eventTicketType);
   setText('detail-reference-number', userInput);
+  // 詳細ページで3回タップして変更した番号があれば、そちらを優先する
+  setText('detail-reference-number', get('ticketReferenceOverride'));
 
   if (eventImage) {
     var imgEl = document.getElementById('detail-image');
@@ -407,6 +424,54 @@
 
   // 手動で選んだ色があればそれを、なければ接頭辞から決めた色を使う
   applyColor(saved() || autoColor);
+
+  // 整理番号が変わったとき(接頭辞が変わったとき)に、色を計算し直す入口。手動で選んだ色があればそちらが優先
+  window.__refreshTicketColor = function () {
+    autoColor = mainColorOf(prefixOf(refEl.textContent));
+    applyColor(saved() || autoColor);
+  };
+})();
+</script>
+<script>
+(function () {
+  // 整理番号を3回続けてタップすると、番号を変更できる。
+  // 変更した番号は保存して、入場処理のあとも、開き直したあとも、その番号のままにする。
+  var KEY = 'ticketReferenceOverride';   // 入力ページで保存し直すと消える
+  function $(id) { return document.getElementById(id); }
+  var badge = $('detail-reference-badge'), refEl = $('detail-reference-number');
+  var editor = $('ref-editor'), input = $('ref-editor-input'), hint = $('ref-editor-hint');
+  if (!badge || !refEl || !editor) return;
+
+  function open() {
+    input.value = refEl.textContent.trim();
+    hint.textContent = '';
+    editor.className = 'Modal_containerOpen__tEekK';
+    setTimeout(function () { try { input.focus(); input.select(); } catch (e) {} }, 0);
+  }
+  function close() { editor.className = 'Modal_containerClose__aIAw3'; }
+  function commit() {
+    var v = input.value.trim();
+    if (!v) { hint.textContent = '整理番号を入力してください'; return; }
+    refEl.textContent = v;
+    try { localStorage.setItem(KEY, v); } catch (e) {}
+    // 接頭辞が変わったら、色(接頭辞から決まる色)も計算し直す
+    if (window.__refreshTicketColor) window.__refreshTicketColor();
+    close();
+  }
+
+  var count = 0, lastTap = 0;
+  var GAP_MS = 600;                      // この間隔以内に続けてタップしたら「連続」
+  badge.addEventListener('click', function () {
+    var now = Date.now();
+    count = (now - lastTap <= GAP_MS) ? count + 1 : 1;
+    lastTap = now;
+    if (count >= 3) { count = 0; open(); }
+  });
+
+  $('ref-editor-ok').addEventListener('click', commit);
+  $('ref-editor-cancel').addEventListener('click', close);
+  $('ref-editor-backdrop').addEventListener('click', close);
+  input.addEventListener('keydown', function (e) { if (e.key === 'Enter') commit(); });
 })();
 </script>
 <script>
