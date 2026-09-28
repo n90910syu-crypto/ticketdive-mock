@@ -191,11 +191,7 @@
 <body>
   <div class="box">
 
-    <label for="userInput">整理番号</label>
-
-    <input id="userInput" type="text" placeholder="S-">
-
-    <label for="userNameInput" style="margin-top:16px;">氏名</label>
+    <label for="userNameInput">氏名</label>
 
     <input id="userNameInput" type="text" placeholder="中村海斗">
 
@@ -229,6 +225,9 @@
       <option value="">-- 候補から選ぶ --</option>
     </select>
     <input id="eventTicketTypeInput" type="text" placeholder="自動取得 or 手入力">
+
+    <label for="userInput" style="margin-top:16px;">整理番号</label>
+    <input id="userInput" type="text" placeholder="S-">
 
     <label for="eventDateInput" style="margin-top:16px;">日時</label>
     <input id="eventDateInput" type="text" placeholder="自動取得 or 手入力">
@@ -418,12 +417,83 @@
     eventImageInput.addEventListener('input', updateImagePreview);
     updateImagePreview();
 
+    // チケット種別ごとの整理番号の接頭辞(取得したときに分かる)。 チケット種別名 → 接頭辞
+    let ticketPrefixMap = {};
+
+    // 整理番号の「接頭辞」の部分だけを差し替える。番号の部分(S-34 の 34)はそのまま残す
+    function applyPrefixToReference(prefix) {
+      const cur = input.value.trim();
+      let number = '';
+      const i = cur.indexOf('-');
+      if (i !== -1) {
+        number = cur.slice(i + 1);
+      } else {
+        const m = /\d+$/.exec(cur);
+        number = m ? m[0] : '';
+      }
+      input.value = prefix + '-' + number;
+      goLink.classList.add('disabled');
+    }
+
+    // 今のチケット種別に対応する接頭辞が分かっていれば、整理番号に反映する
+    function syncPrefixWithTicketType() {
+      const name = eventTicketTypeInput.value.trim();
+      if (Object.prototype.hasOwnProperty.call(ticketPrefixMap, name)) {
+        applyPrefixToReference(ticketPrefixMap[name]);
+      }
+    }
+
+    // ページに埋め込まれたデータ(__NEXT_DATA__)から、接頭辞(prefix)を持つ項目を集める
+    function extractPrefixPairs(doc) {
+      const pairs = [];
+      const nd = doc.getElementById ? doc.getElementById('__NEXT_DATA__') : null;
+      if (!nd) return pairs;
+      let data;
+      try { data = JSON.parse(nd.textContent); } catch (e) { return pairs; }
+      const seen = new Set();
+      (function walk(o) {
+        if (!o || typeof o !== 'object') return;
+        if (typeof o.prefix === 'string' && o.prefix.trim() !== '') {
+          const name = typeof o.name === 'string' ? o.name.trim() : '';
+          const key = (o.id || '') + '|' + name + '|' + o.prefix;
+          if (!seen.has(key)) {
+            seen.add(key);
+            pairs.push({ name: name, prefix: o.prefix.trim() });
+          }
+        }
+        (Array.isArray(o) ? o : Object.values(o)).forEach(walk);
+      })(data);
+      return pairs;
+    }
+
+    // 集めた接頭辞を、画面のチケット種別と対応付ける。
+    //   ① 名前が同じもの同士を対応付ける
+    //   ② 名前で対応付けられない場合、同じ並びが繰り返されているだけなら、並び順で対応付ける
+    function buildPrefixMap(pairs, ticketNames) {
+      const map = {};
+      ticketNames.forEach(function (n) {
+        const hit = pairs.find(function (p) { return p.name && p.name === n; });
+        if (hit) map[n] = hit.prefix;
+      });
+      const n = ticketNames.length;
+      if (Object.keys(map).length === 0 && n > 0 && pairs.length >= n && pairs.length % n === 0) {
+        const periodic = pairs.every(function (p, i) { return p.prefix === pairs[i % n].prefix; });
+        if (periodic) {
+          ticketNames.forEach(function (name, i) { map[name] = pairs[i].prefix; });
+        }
+      }
+      return map;
+    }
+
     ticketTypeSelect.addEventListener('change', function () {
       if (ticketTypeSelect.value) {
         eventTicketTypeInput.value = ticketTypeSelect.value;
         goLink.classList.add('disabled');
+        syncPrefixWithTicketType();      // チケット種別を変えたら、整理番号の接頭辞も自動で変える
       }
     });
+    // 手入力でチケット種別名が完全に一致したときも同様に反映する
+    eventTicketTypeInput.addEventListener('input', syncPrefixWithTicketType);
 
     groupSelect.addEventListener('change', function () {
       if (groupSelect.value) {
@@ -461,6 +531,7 @@
       ticketTypeSelect.innerHTML = '<option value="">-- 候補から選ぶ --</option>';
       ticketTypeSelect.value = '';
       ticketTypeSelect.style.display = 'none';
+      ticketPrefixMap = {};
       groupInput.value = '';
       groupSelect.innerHTML = '<option value="">-- 候補から選ぶ --</option>';
       groupSelect.value = '';
@@ -532,6 +603,7 @@
       // 取れた項目だけ、その項目の欄に反映する。
       let gotCount = 0;
       let multiChoiceNote = ''; // 候補が複数あって一番上を自動選択した項目名
+      let prefixNote = '';      // 整理番号の接頭辞を取得できたか(画面に表示する)
 
       if (doc) {
         // イベント名: EventInfoUnit_name__P2ZEy というクラスを持つ見出し
@@ -737,11 +809,22 @@
             multiChoiceNote += (multiChoiceNote ? '・' : '') + 'チケット種別';
           }
         }
+
+        // チケット種別ごとの整理番号の接頭辞を取得して、今選んでいるチケット種別の分を整理番号に反映する
+        ticketPrefixMap = buildPrefixMap(extractPrefixPairs(doc), ticketNames);
+        const prefixEntries = Object.keys(ticketPrefixMap);
+        if (prefixEntries.length > 0) {
+          prefixNote = '整理番号の接頭辞: ' + prefixEntries.map(function (n) { return n + '=' + ticketPrefixMap[n]; }).join(' / ');
+          syncPrefixWithTicketType();
+        } else if (ticketNames.length > 0) {
+          prefixNote = '整理番号の接頭辞は取得できませんでした。手入力してください。';
+        }
       }
 
       if (doc) {
         fetchStatus.textContent = gotCount + '件の項目を取得しました(5秒以内に取得できた分のみ反映)。空欄が残っていれば手入力してください。'
-          + (multiChoiceNote ? '\n' + multiChoiceNote + 'は一番上を自動で選択しています。違う場合はプルダウンで変更してください。' : '');
+          + (multiChoiceNote ? '\n' + multiChoiceNote + 'は一番上を自動で選択しています。違う場合はプルダウンで変更してください。' : '')
+          + (prefixNote ? '\n' + prefixNote : '');
       } else if (timedOut) {
         fetchStatus.textContent = '5秒以内に取得できませんでした。空欄の項目は手入力してください。';
       } else if (fetchError) {
@@ -785,11 +868,12 @@
 
     // 保存前に必ず入力されているべき項目(画面の上から順)
     const requiredFields = [
-      { el: input, label: '整理番号', isEmpty: function (v) { return v === '' || v === 'S' || v === 'S-'; } },
       { el: nameInput, label: '氏名' },
       { el: eventTitleInput, label: 'イベントタイトル' },
       { el: groupInput, label: 'お目当てのグループ' },
       { el: eventTicketTypeInput, label: 'チケット種別' },
+      // 「S-」「A-」のように接頭辞だけで、番号(数字)がないものは未入力として扱う
+      { el: input, label: '整理番号', isEmpty: function (v) { return !/[0-9]/.test(v); } },
       { el: eventDateInput, label: '日時' },
       { el: eventShowtimeInput, label: '開場/開演' },
       { el: eventImageInput, label: '画像URL' },
@@ -837,6 +921,7 @@
 
       // 新しく保存したら、詳細ページの「入場済み」状態は解除して、最初から試せるようにする
       localStorage.removeItem('ticketEnteredAt');
+      localStorage.removeItem('ticketColorOverride');
 
       goLink.classList.remove('disabled');
 
