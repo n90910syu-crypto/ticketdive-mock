@@ -523,10 +523,18 @@
         // 日時・開場時刻・開演時刻: 「2026/10/30(金)」「開場時刻 16:30 / 開演時刻 17:00」のような
         // テキストが1つのspanにまとまっている(専用クラス名がないので中身のパターンで探す)
         const infoSpans = Array.from(doc.querySelectorAll('span.Typography_root__9AOcJ'));
-        const dateTimeEl = infoSpans.find(function (el) {
-          const t = el.textContent;
-          return /\d{4}\/\d{1,2}\/\d{1,2}/.test(t) && t.includes('開場時刻');
+        // 最優先: 「公演日時」というラベルのspanのすぐ隣にあるspanが日時
+        // (ラベルが見つからない場合は、日付と「開場時刻」の文字を含むspanを探す)
+        const dateLabelEl = infoSpans.find(function (el) {
+          return el.textContent.trim() === '公演日時';
         });
+        let dateTimeEl = (dateLabelEl && dateLabelEl.nextElementSibling) ? dateLabelEl.nextElementSibling : null;
+        if (!dateTimeEl) {
+          dateTimeEl = infoSpans.find(function (el) {
+            const t = el.textContent;
+            return /\d{4}\/\d{1,2}\/\d{1,2}/.test(t) && t.includes('開場時刻');
+          });
+        }
 
         if (dateTimeEl) {
           const rawText = dateTimeEl.textContent;
