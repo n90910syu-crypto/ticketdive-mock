@@ -135,6 +135,7 @@
     }
 
     .status-text {
+      white-space: pre-line;
       margin-top: 10px;
       font-size: 13px;
       color: #888;
@@ -171,6 +172,11 @@
       color: #555;
     }
 
+    .invalid {
+      border: 2px solid #e53935 !important;
+      background: #fff5f5 !important;
+    }
+
     .picker-btn {
       margin-top: 8px;
       background: #eee;
@@ -193,10 +199,6 @@
 
     <input id="userNameInput" type="text" placeholder="中村海斗">
 
-    <label for="userGroupInput" style="margin-top:16px;">お目当てのグループ</label>
-
-    <input id="userGroupInput" type="text" placeholder="Peel the Apple">
-
     <hr class="divider">
 
     <label for="eventUrlInput">Ticket Dive イベントURL</label>
@@ -215,6 +217,12 @@
 
     <label for="eventTitleInput" style="margin-top:16px;">イベントタイトル</label>
     <input id="eventTitleInput" type="text" placeholder="自動取得 or 手入力">
+
+    <label for="userGroupInput" style="margin-top:16px;">お目当てのグループ</label>
+    <select id="groupSelect" style="display:none; margin-bottom:8px;">
+      <option value="">-- 候補から選ぶ --</option>
+    </select>
+    <input id="userGroupInput" type="text" placeholder="自動取得 or 手入力">
 
     <label for="eventTicketTypeInput" style="margin-top:16px;">チケット種別</label>
     <select id="ticketTypeSelect" style="display:none; margin-bottom:8px;">
@@ -289,6 +297,7 @@
     const input = document.getElementById('userInput');
     const nameInput = document.getElementById('userNameInput');
     const groupInput = document.getElementById('userGroupInput');
+    const groupSelect = document.getElementById('groupSelect');
     const goLink = document.getElementById('goLink');
 
     // 保存済みがあれば復元、なければ初期値(プレースホルダーと同じ)を表示
@@ -300,7 +309,7 @@
 
     restore(input, 'userInput', 'S-');
     restore(nameInput, 'userName', '中村海斗');
-    restore(groupInput, 'userGroup', 'Peel the Apple');
+    // お目当てのグループは、イベントごとに候補が変わるので毎回空から始める
 
     // イベント情報欄は毎回リセット(ページを開き直したら空の状態から始める)
 
@@ -416,6 +425,13 @@
       }
     });
 
+    groupSelect.addEventListener('change', function () {
+      if (groupSelect.value) {
+        groupInput.value = groupSelect.value;
+        goLink.classList.add('disabled');
+      }
+    });
+
     // 入力されたURLへの「このURLを開く」リンクを更新
     function updateOpenEventUrlLink() {
       const url = eventUrlInput.value.trim();
@@ -445,6 +461,10 @@
       ticketTypeSelect.innerHTML = '<option value="">-- 候補から選ぶ --</option>';
       ticketTypeSelect.value = '';
       ticketTypeSelect.style.display = 'none';
+      groupInput.value = '';
+      groupSelect.innerHTML = '<option value="">-- 候補から選ぶ --</option>';
+      groupSelect.value = '';
+      groupSelect.style.display = 'none';
       eventDateInput.value = '';
       eventShowtimeInput.value = '';
       eventImageInput.value = '';
@@ -511,6 +531,7 @@
       // 取得できなかった項目は空欄のまま(既存の入力があれば消さない)。
       // 取れた項目だけ、その項目の欄に反映する。
       let gotCount = 0;
+      let multiChoiceNote = ''; // 候補が複数あって一番上を自動選択した項目名
 
       if (doc) {
         // イベント名: EventInfoUnit_name__P2ZEy というクラスを持つ見出し
@@ -629,6 +650,39 @@
           }
         }
 
+        // 出演者(お目当てのグループの候補): 「出演」ラベルの隣のspanの中にあるアーティスト名
+        const castLabelEl = infoSpans.find(function (el) {
+          return el.textContent.trim() === '出演';
+        });
+        let artistEls = [];
+        if (castLabelEl && castLabelEl.nextElementSibling) {
+          artistEls = Array.from(castLabelEl.nextElementSibling.querySelectorAll('.EventInfoUnit_artistName__QVRvS'));
+        }
+        if (artistEls.length === 0) {
+          artistEls = Array.from(doc.querySelectorAll('.EventInfoUnit_artistName__QVRvS'));
+        }
+        const artistNames = artistEls
+          .map(function (el) { return el.textContent.trim(); })
+          .filter(function (t, idx, arr) { return t && arr.indexOf(t) === idx; });
+
+        groupSelect.innerHTML = '<option value="">-- 候補から選ぶ --</option>';
+        artistNames.forEach(function (name) {
+          const opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = name;
+          groupSelect.appendChild(opt);
+        });
+        if (artistNames.length > 0) {
+          groupSelect.style.display = 'block';
+          // 一番上をデフォルトで選択(必要なら自分で変更する)
+          groupInput.value = artistNames[0];
+          groupSelect.value = artistNames[0];
+          gotCount++;
+          if (artistNames.length > 1) multiChoiceNote += 'お目当てのグループ';
+        } else {
+          groupSelect.style.display = 'none';
+        }
+
         // 画像URL: EventImage_image__8JwBv というクラスのimgタグから、
         // Next.jsの画像最適化用URL(/_next/image?url=...)に包まれた本来の画像URLを取り出す
         const imgEl = doc.querySelector('.EventImage_image__8JwBv');
@@ -674,19 +728,20 @@
           ticketTypeSelect.style.display = 'none';
         }
 
-        if (ticketNames.length === 1) {
+        if (ticketNames.length > 0) {
+          // 一番上をデフォルトで選択(必要なら自分で変更する)
           eventTicketTypeInput.value = ticketNames[0];
           ticketTypeSelect.value = ticketNames[0];
           gotCount++;
-        } else if (ticketNames.length > 1) {
-          eventTicketTypeInput.value = '';
-          ticketTypeSelect.value = '';
-          fetchStatus.textContent = 'チケット種別が複数見つかりました。プルダウンから選択するか入力してください。';
+          if (ticketNames.length > 1) {
+            multiChoiceNote += (multiChoiceNote ? '・' : '') + 'チケット種別';
+          }
         }
       }
 
       if (doc) {
-        fetchStatus.textContent = gotCount + '件の項目を取得しました(5秒以内に取得できた分のみ反映)。空欄が残っていれば手入力してください。';
+        fetchStatus.textContent = gotCount + '件の項目を取得しました(5秒以内に取得できた分のみ反映)。空欄が残っていれば手入力してください。'
+          + (multiChoiceNote ? '\n' + multiChoiceNote + 'は一番上を自動で選択しています。違う場合はプルダウンで変更してください。' : '');
       } else if (timedOut) {
         fetchStatus.textContent = '5秒以内に取得できませんでした。空欄の項目は手入力してください。';
       } else if (fetchError) {
@@ -724,10 +779,51 @@
           finished = true;
           clearInterval(tick);
           clearTimeout(watchdog);
+          unmarkFilled(); // 取得で埋まった欄の赤枠を外す
         });
     });
 
+    // 保存前に必ず入力されているべき項目(画面の上から順)
+    const requiredFields = [
+      { el: input, label: '整理番号', isEmpty: function (v) { return v === '' || v === 'S' || v === 'S-'; } },
+      { el: nameInput, label: '氏名' },
+      { el: eventTitleInput, label: 'イベントタイトル' },
+      { el: groupInput, label: 'お目当てのグループ' },
+      { el: eventTicketTypeInput, label: 'チケット種別' },
+      { el: eventDateInput, label: '日時' },
+      { el: eventShowtimeInput, label: '開場/開演' },
+      { el: eventImageInput, label: '画像URL' },
+      { el: eventVenueInput, label: '会場名' }
+    ];
+
+    function isFieldEmpty(f) {
+      const v = f.el.value.trim();
+      return f.isEmpty ? f.isEmpty(v) : v === '';
+    }
+
+    // 入力し終わった欄の赤枠は外す
+    function unmarkFilled() {
+      requiredFields.forEach(function (f) {
+        if (f.el.classList.contains('invalid') && !isFieldEmpty(f)) {
+          f.el.classList.remove('invalid');
+        }
+      });
+    }
+    ['input', 'change', 'click'].forEach(function (evt) {
+      document.addEventListener(evt, function () { setTimeout(unmarkFilled, 0); });
+    });
+
     saveAllBtn.addEventListener('click', function () {
+      const missing = requiredFields.filter(isFieldEmpty);
+      requiredFields.forEach(function (f) { f.el.classList.remove('invalid'); });
+      if (missing.length > 0) {
+        missing.forEach(function (f) { f.el.classList.add('invalid'); });
+        goLink.classList.add('disabled');
+        alert('未入力項目があります。\n\n' + missing.map(function (f) { return '・' + f.label; }).join('\n') + '\n\n赤くなっている欄を入力してから、もう一度保存してください。');
+        if (missing[0].el.scrollIntoView) missing[0].el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+
       localStorage.setItem('userInput', input.value.trim());
       localStorage.setItem('userName', nameInput.value.trim());
       localStorage.setItem('userGroup', groupInput.value.trim());
