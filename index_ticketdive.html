@@ -187,7 +187,7 @@
 
     <label for="userInput">整理番号</label>
 
-    <input id="userInput" type="text" placeholder="S">
+    <input id="userInput" type="text" placeholder="S-">
 
     <label for="userNameInput" style="margin-top:16px;">氏名</label>
 
@@ -298,7 +298,7 @@
       el.value = saved && saved.trim() !== '' ? saved : fallback;
     }
 
-    restore(input, 'userInput', 'S');
+    restore(input, 'userInput', 'S-');
     restore(nameInput, 'userName', '中村海斗');
     restore(groupInput, 'userGroup', 'Peel the Apple');
 
