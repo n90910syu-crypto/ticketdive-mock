@@ -523,6 +523,102 @@
     eventUrlInput.addEventListener('input', updateOpenEventUrlLink);
     updateOpenEventUrlLink();
 
+    // ---- ページに埋め込まれたデータ(__NEXT_DATA__ の eventDetail)から、公演とチケット種別を取る ----
+    // 本物のページが、公演カードやチケット種別の一覧を作るのに使っているデータそのもの。
+    //   eventDetail.stages          : 公演の一覧(開場openVenue・開演startStage・公演名stageName・会場venue.name・出演artists)
+    //   eventDetail.ticketInfoList  : 販売情報の一覧。その中の ticketTypes に、名前name・接頭辞prefix・対応する公演stageIds
+    function toJstParts(v) {
+      let ms = NaN;
+      if (typeof v === 'number') ms = v < 1e11 ? v * 1000 : v;                       // 秒 or ミリ秒
+      else if (typeof v === 'string') ms = Date.parse(v);
+      else if (v && typeof v === 'object') {
+        const sec = typeof v.seconds === 'number' ? v.seconds : (typeof v._seconds === 'number' ? v._seconds : NaN);
+        if (!isNaN(sec)) ms = sec * 1000;
+      }
+      if (!isFinite(ms)) return null;
+      const j = new Date(ms + 9 * 3600 * 1000);                                        // 日本時間(UTC+9)にそろえる
+      return { y: j.getUTCFullYear(), m: j.getUTCMonth() + 1, d: j.getUTCDate(), hh: j.getUTCHours(), mm: j.getUTCMinutes(), wd: j.getUTCDay() };
+    }
+
+    function findEventDetail(data) {
+      const pp = data && data.props && data.props.pageProps;
+      if (pp && pp.eventDetail && Array.isArray(pp.eventDetail.stages)) return pp.eventDetail;
+      let found = null;
+      (function walk(o, depth) {
+        if (found || !o || typeof o !== 'object' || depth > 8) return;
+        if (o.event && typeof o.event === 'object' && Array.isArray(o.stages)) { found = o; return; }
+        (Array.isArray(o) ? o : Object.values(o)).forEach(function (v) { walk(v, depth + 1); });
+      })(data, 0);
+      return found;
+    }
+
+    function stagesFromEventDetail(ed) {
+      const uniq = function (arr) { return arr.filter(function (x, i, a) { return x && a.indexOf(x) === i; }); };
+      const ticketTypes = [];
+      (ed.ticketInfoList || []).forEach(function (info) {
+        (info.ticketTypes || []).forEach(function (tt) {
+          if (tt && typeof tt.name === 'string') {
+            ticketTypes.push({
+              name: tt.name.trim(),
+              prefix: typeof tt.prefix === 'string' ? tt.prefix.trim() : '',
+              stageIds: Array.isArray(tt.stageIds) ? tt.stageIds : []
+            });
+          }
+        });
+      });
+
+      const list = [];
+      (ed.stages || []).forEach(function (stg) {
+        const s = toJstParts(stg.startStage);
+        if (!s) return;
+        const o = toJstParts(stg.openVenue);
+        const st = {
+          id: stg.id,
+          y: String(s.y), m: String(s.m), d: String(s.d), weekday: weekdayKanji[s.wd],
+          sh: String(s.hh), sm: String(s.mm).padStart(2, '0'),
+          venue: stg.venue && stg.venue.name ? String(stg.venue.name).trim() : '',
+          name: typeof stg.stageName === 'string' ? stg.stageName.trim() : '',
+          status: '',
+          artists: uniq((stg.artists || []).map(function (a) { return a && a.name ? String(a.name).trim() : ''; })),
+          _start: Date.UTC(s.y, s.m - 1, s.d, s.hh, s.mm)
+        };
+        if (o) { st.oh = String(o.hh); st.om = String(o.mm).padStart(2, '0'); }
+        // この公演で買えるチケット種別(公演の指定がない種別は、どの公演でも買えるとみなす)
+        const seen = {};
+        st.ticketTypes = ticketTypes.filter(function (tt) {
+          if (tt.stageIds.length > 0 && tt.stageIds.indexOf(stg.id) === -1) return false;
+          if (seen[tt.name]) return false;
+          seen[tt.name] = true;
+          return true;
+        });
+        // 公演名が会場名と同じなら、表示に出す意味がないので消す
+        if (st.name === st.venue) st.name = '';
+        list.push(st);
+      });
+      list.sort(function (a, b) { return a._start - b._start; });
+      return list;
+    }
+
+    // チケット種別の候補(名前と接頭辞)を画面に並べ、一番上を選んで、整理番号の接頭辞にも反映する
+    function setTicketTypes(list) {
+      ticketPrefixMap = {};
+      ticketTypeSelect.innerHTML = '<option value="">-- 候補から選ぶ --</option>';
+      list.forEach(function (t) {
+        const opt = document.createElement('option');
+        opt.value = t.name;
+        opt.textContent = t.name;
+        ticketTypeSelect.appendChild(opt);
+        if (t.prefix) ticketPrefixMap[t.name] = t.prefix;
+      });
+      ticketTypeSelect.style.display = list.length > 0 ? 'block' : 'none';
+      if (list.length > 0) {
+        eventTicketTypeInput.value = list[0].name;
+        ticketTypeSelect.value = list[0].name;
+        syncPrefixWithTicketType();
+      }
+      return { count: list.length > 0 ? 1 : 0, multi: list.length > 1 };
+    }
+
     // ---- 公演(日程)が複数あるイベント(3日間開催など)への対応 ----
     // 取得した公演の一覧。1つの公演ぶんが { 日付, 開場・開演の時刻, 会場, 出演者の一覧 }
     let stagesData = [];
@@ -593,6 +689,14 @@
       } else {
         groupSelect.style.display = 'none';
         groupInput.value = '';
+      }
+
+      // ページ内のデータから取った公演は、その公演で買えるチケット種別も持っている
+      if (st.ticketTypes && st.ticketTypes.length > 0) {
+        const tr = setTicketTypes(st.ticketTypes);
+        result.count += tr.count;
+        result.ticketHandled = true;
+        if (tr.multi) result.multiTicket = true;
       }
       return result;
     }
@@ -783,11 +887,25 @@
       let startOnlyNote = '';   // 開場時刻が取れなかったときの案内
 
       if (doc) {
+        // ---- 最優先: ページに埋め込まれたデータ(eventDetail)。公演・開場開演の時刻・チケット種別がそろっている ----
+        let dataStages = [];
+        let dataEventName = '';
+        try {
+          const nd = doc.getElementById ? doc.getElementById('__NEXT_DATA__') : null;
+          if (nd) {
+            const ed = findEventDetail(JSON.parse(nd.textContent));
+            if (ed) {
+              dataStages = stagesFromEventDetail(ed);
+              dataEventName = ed.event && ed.event.name ? String(ed.event.name).trim() : '';
+            }
+          }
+        } catch (e) { dataStages = []; }
+
         // イベント名: ページの<title>(「イベント名 | TicketDive」)が、チケットに出るイベント名と同じ。
         // 公演(日程)が複数あるページでは、見出しのクラスが公演ごとの名前(【10月2日】…)になるため、<title>を優先する。
-        let eventName = '';
+        let eventName = dataEventName;
         const titleTag = doc.querySelector('title');
-        if (titleTag) eventName = titleTag.textContent.replace(/\s*\|\s*TicketDive\s*$/, '').trim();
+        if (!eventName && titleTag) eventName = titleTag.textContent.replace(/\s*\|\s*TicketDive\s*$/, '').trim();
         if (!eventName) {
           const titleEl = doc.querySelector('.EventInfoUnit_name__P2ZEy');
           if (titleEl) eventName = titleEl.textContent.trim();
@@ -824,6 +942,9 @@
         let parsed = rawStages.map(function (s) {
           return parseStageEls(s.dateEl, s.venueEl || headerVenueEl, s.castEl || headerCastEl);
         }).filter(Boolean);
+
+        const fromData = dataStages.length > 0;
+        if (fromData) parsed = dataStages;
 
         // 公演がカードで並ぶタイプ(ツアーなど): 先頭の「公演日時」(例: 2026/9/24(木)〜12/7(月))から年と開始月を補う
         if (parsed.length === 0) {
@@ -899,6 +1020,14 @@
           gotCount++;
         }
 
+        if (applied.ticketHandled) {
+          const entries = Object.keys(ticketPrefixMap);
+          if (entries.length > 0) {
+            prefixNote = '整理番号の接頭辞: ' + entries.map(function (n) { return n + '=' + ticketPrefixMap[n]; }).join(' / ');
+          }
+          if (applied.multiTicket) multiChoiceNote += (multiChoiceNote ? '・' : '') + 'チケット種別';
+          prefixNote += (prefixNote ? '\n' : '') + '(公演・チケット種別は、ページ内のデータから取得しました。公演を変えると、その公演で買える種別に切り替わります)';
+        } else {
         // チケット種別: TicketTypeCard_ticketTypeContainer__ssRda というカードが種別の数だけ並んでいる。
         // それぞれの中の、一番最初のspan(価格の前にある名前部分)を取り出す
         const ticketTypeContainers = doc.querySelectorAll('.TicketTypeCard_ticketTypeContainer__ssRda');
@@ -957,6 +1086,7 @@
           prefixNote = '整理番号の接頭辞は取得できませんでした。手入力してください。';
         } else {
           prefixNote = 'チケット種別と整理番号の接頭辞は取得できませんでした。手入力してください。';
+        }
         }
       }
 
