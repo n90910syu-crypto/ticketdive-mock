@@ -1296,7 +1296,9 @@
 
 <script>
 (function () {
-  var PASSWORD = 'gjhefgkjfsad';
+  // パスワードの文字そのものではなく、SHA-256というハッシュ値(元に戻せない変換後の文字列)だけを持つ。
+  // 入力された文字を同じ方法で変換し、このハッシュ値と一致するかどうかだけを見て判定する。
+  var PASSWORD_HASH = '02df6b5552f3fa903a1007f7e499416eebb40a09111fcd6224071925239360a7';
   var STORAGE_KEY = 'indexUnlocked';
 
   var lockScreen = document.getElementById('lockScreen');
@@ -1305,14 +1307,23 @@
   var button = document.getElementById('lockButton');
   var message = document.getElementById('lockMessage');
 
+  async function sha256Hex(text) {
+    var data = new TextEncoder().encode(text);
+    var buf = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+  }
+
   function unlock() {
     try { sessionStorage.setItem(STORAGE_KEY, '1'); } catch (e) {}
     lockScreen.style.display = 'none';
     mainBox.style.display = 'block';
   }
 
-  function tryUnlock() {
-    if (input.value === PASSWORD) {
+  async function tryUnlock() {
+    button.disabled = true;
+    var hash = await sha256Hex(input.value);
+    button.disabled = false;
+    if (hash === PASSWORD_HASH) {
       unlock();
     } else {
       message.textContent = 'パスワードが違います';
