@@ -189,7 +189,14 @@
 </head>
 
 <body>
-  <div class="box">
+  <div id="lockScreen" class="box" style="text-align:center;">
+    <h2 style="margin-top:0;">パスワードを入力してください</h2>
+    <input id="lockPassword" type="password" placeholder="パスワード" autocomplete="off" style="text-align:center;">
+    <p id="lockMessage" style="color:#e53935; min-height:20px; margin:8px 0;"></p>
+    <button id="lockButton" class="btn" type="button">開く</button>
+  </div>
+
+  <div id="mainBox" class="box" style="display:none;">
 
     <label for="userNameInput">氏名</label>
 
@@ -1287,4 +1294,43 @@
     });
   </script>
 
+<script>
+(function () {
+  var PASSWORD = 'gjhefgkjfsad';
+  var STORAGE_KEY = 'indexUnlocked';
+
+  var lockScreen = document.getElementById('lockScreen');
+  var mainBox = document.getElementById('mainBox');
+  var input = document.getElementById('lockPassword');
+  var button = document.getElementById('lockButton');
+  var message = document.getElementById('lockMessage');
+
+  function unlock() {
+    try { sessionStorage.setItem(STORAGE_KEY, '1'); } catch (e) {}
+    lockScreen.style.display = 'none';
+    mainBox.style.display = 'block';
+  }
+
+  function tryUnlock() {
+    if (input.value === PASSWORD) {
+      unlock();
+    } else {
+      message.textContent = 'パスワードが違います';
+      input.value = '';
+      input.focus();
+    }
+  }
+
+  var already = false;
+  try { already = sessionStorage.getItem(STORAGE_KEY) === '1'; } catch (e) {}
+  if (already) {
+    unlock();
+  } else {
+    input.focus();
+  }
+
+  button.addEventListener('click', tryUnlock);
+  input.addEventListener('keydown', function (e) { if (e.key === 'Enter') tryUnlock(); });
+})();
+</script>
 </body></html>
