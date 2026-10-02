@@ -28,7 +28,7 @@
     </div>
   </div>
 </div>
-<div id="__next">
+<div id="__next" style="visibility:hidden;">
   <div class="FlexBox_flex__8_6hs BodyLayout_sectionWrap__Dvfod" style="flex-direction:column;justify-content:space-between">
 
     <div class="FlexBox_flex__8_6hs NavHeader_header__oh_rR">
@@ -632,6 +632,8 @@
     if (hidden) return;
     hidden = true;
     loader.style.display = 'none';
+    var content = document.getElementById('__next');
+    if (content) content.style.visibility = 'visible';
   }
   function hideWithMinimumDelay() {
     var elapsed = Date.now() - shownAt;
