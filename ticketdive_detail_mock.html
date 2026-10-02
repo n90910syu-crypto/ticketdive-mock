@@ -146,7 +146,7 @@
             </div>
             <span id="detail-distribute-label" class="Typography_root__9AOcJ" style="--color:var(--b1);font-size:1.2rem;white-space:nowrap;font-weight:600;">分配する</span>
           </div>
-          <a class="AnchorLink_anchor__kfgGH" href="#" target="_blank">
+          <a id="detail-link" class="AnchorLink_anchor__kfgGH" href="#" target="_blank">
             <div class="FlexBox_flex__8_6hs TicketAction_pointer__jKbnK" style="align-items:center;justify-content:center;flex-direction:column;gap:0.8rem;">
               <div class="Icon_outer__xwR_2" style="--color:var(--b1);--size:2rem;cursor:inherit;">
                 <svg fill="none" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M17.5 10.833v5a1.666 1.666 0 0 1-1.667 1.667H4.167A1.667 1.667 0 0 1 2.5 15.833V4.167A1.667 1.667 0 0 1 4.167 2.5h5M17.5 2.5 10 10M12.5 2.5h5v5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
@@ -235,6 +235,47 @@
     </div>
   </div>
 </div>
+<!-- 分配モーダル(本物と同じ文言・クラス名。URLはこの模倣用の固定値) -->
+<div id="distribute-modal" class="Modal_containerClose__aIAw3">
+  <div id="distribute-modal-backdrop" class="Modal_backdrop__FIFNe"></div>
+  <div class="Modal_modal__I0Mc2 Modal_center__YC0fv" style="width:calc(100% - 3.2rem);max-width:44rem;">
+    <div style="background:var(--w1);border-radius:1.2rem;overflow:hidden;">
+      <div style="padding:2rem 2.4rem;position:relative;">
+        <span id="distribute-modal-close" style="position:absolute;top:1.6rem;right:1.6rem;cursor:pointer;">
+          <div class="Icon_outer__xwR_2" style="--color:var(--b1);--size:2rem;cursor:inherit;">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 5l14 14M19 5L5 19" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"></path></svg>
+          </div>
+        </span>
+        <span class="Typography_root__9AOcJ" id="distribute-modal-title" style="--color:var(--b1);font-size:2rem;font-weight:700;">Platinum Halloween Fes 2026</span>
+        <div class="FlexBox_flex__8_6hs" style="justify-content:space-between;align-items:center;margin-top:1.2rem;">
+          <div class="FlexBox_flex__8_6hs" style="flex-direction:column;gap:0.6rem;">
+            <span class="Typography_root__9AOcJ" id="distribute-modal-venue" style="--color:var(--b2);font-size:1.4rem;font-weight:600;">Spotify O-WEST</span>
+            <span class="Typography_root__9AOcJ" id="distribute-modal-date" style="--color:var(--b1);font-size:2.8rem;font-weight:700;">10.30 金</span>
+          </div>
+          <div id="distribute-modal-badge" class="FlexBox_flex__8_6hs" style="background-color:rgb(210,158,31);border-radius:2px;padding:1.1rem 0.8rem;">
+            <span class="Typography_root__9AOcJ" id="distribute-modal-reference" style="--color:var(--w1);font-weight:700;font-size:2.4rem;">S-34</span>
+          </div>
+        </div>
+      </div>
+      <div class="FlexBox_flex__8_6hs" style="flex-direction:column;gap:2rem;align-items:center;padding:2.4rem;background-color:var(--w3);">
+        <span class="Typography_root__9AOcJ" style="--color:var(--b1);font-size:1.6rem;font-weight:600;line-height:175%;">チケットの分配</span>
+        <span class="Typography_root__9AOcJ" style="--color:var(--b1);line-height:200%;text-align:center;white-space:pre-line;">チケットを分配すると、
+受け取った方がチケットを使えます。
+分配する相手に下記URLを共有してください。</span>
+        <div class="UrlCopyBlock_container__c9cSA">
+          <div class="FlexBox_flex__8_6hs UrlCopyBlock_urlBox__zu_Jz" style="align-items:center;padding:1.5rem 1.6rem;border:1px solid var(--w4);border-radius:0.4rem;overflow:scroll;white-space:nowrap;">
+            <span id="distribute-modal-url" class="Typography_root__9AOcJ" style="--color:var(--b1);">https://ticketdive.com/ticket/m4Z3HlOMlF5ddggdyvdyjsyb76xh</span>
+          </div>
+          <div class="UrlCopyBlock_productCopyButtonWrap__3FhEE" style="margin-top:1.6rem;">
+            <button id="distribute-modal-copy" type="button" class="Button_medium__spjE8 UrlCopyBlock_productCopyButton__jCSH3 UrlCopyBlock_ticketdiveCopyButton__YaaVO">
+              <span class="Typography_root__9AOcJ" style="--color:var(--w1);font-weight:600;">URLをコピーする</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 <style>
 @keyframes ScrollAnimation_scrollAnimation__W7R5G { 0% { transform: translateX(0); } to { transform: translateX(-100%); } }
 .ScrollAnimation_textScroll__uZ43R { display: inline-block; white-space: nowrap; animation: ScrollAnimation_scrollAnimation__W7R5G 10s linear 1s infinite both; }
@@ -261,6 +302,8 @@
   var userGroup = get('userGroup');           // お目当てのグループ
 
   setText('detail-event-name', eventTitle);
+  var detailLink = document.getElementById('detail-link');
+  if (detailLink && get('eventUrl')) detailLink.setAttribute('href', get('eventUrl'));
   setText('detail-venue', eventVenue);
   setText('detail-purchaser-name', userName);
   setText('detail-favorite-artist', userGroup);
@@ -641,6 +684,58 @@
   }
   window.addEventListener('load', hideWithMinimumDelay);
   setTimeout(hide, MAX_MS);
+})();
+</script>
+<script>
+(function () {
+  function $(id) { return document.getElementById(id); }
+  var wrap = $('detail-distribute');
+  var modal = $('distribute-modal');
+  if (!wrap || !modal) return;
+
+  // モーダルの中身は、実際にカードに表示されている値と合わせる
+  function fillModal() {
+    var copy = function (fromId, toId) { var from = $(fromId), to = $(toId); if (from && to) to.textContent = from.textContent; };
+    copy('detail-event-name', 'distribute-modal-title');
+    copy('detail-venue', 'distribute-modal-venue');
+    copy('detail-reference-number', 'distribute-modal-reference');
+    var badge = $('detail-reference-badge'), modalBadge = $('distribute-modal-badge');
+    if (badge && modalBadge) modalBadge.style.backgroundColor = badge.style.backgroundColor;
+    var day = $('detail-date-day'), wd = $('detail-date-weekday'), dateEl = $('distribute-modal-date');
+    if (day && wd && dateEl) dateEl.textContent = day.textContent + ' ' + wd.textContent;
+  }
+
+  function openModal() { fillModal(); modal.className = 'Modal_containerOpen__tEekK'; }
+  function closeModal() { modal.className = 'Modal_containerClose__aIAw3'; }
+
+  wrap.addEventListener('click', function () {
+    // 「分配する」が薄い(押せない)状態のときは、本物と同じく何も起きない
+    if (wrap.className.indexOf('TicketAction_notAllowed__pkLlM') !== -1) return;
+    openModal();
+  });
+  $('distribute-modal-close').addEventListener('click', closeModal);
+  $('distribute-modal-backdrop').addEventListener('click', closeModal);
+
+  var copyButton = $('distribute-modal-copy');
+  var copyLabel = copyButton.querySelector('span');
+  var copyTimer = null;
+  copyButton.addEventListener('click', function () {
+    var url = $('distribute-modal-url').textContent;
+    function marked() {
+      copyButton.className = 'Button_medium__spjE8 UrlCopyBlock_productCopyButton__jCSH3 UrlCopyBlock_ticketdiveCopyButtonCopied__HomUI';
+      copyLabel.textContent = 'コピーしました';
+      clearTimeout(copyTimer);
+      copyTimer = setTimeout(function () {
+        copyButton.className = 'Button_medium__spjE8 UrlCopyBlock_productCopyButton__jCSH3 UrlCopyBlock_ticketdiveCopyButton__YaaVO';
+        copyLabel.textContent = 'URLをコピーする';
+      }, 3000);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(marked).catch(marked);
+    } else {
+      marked();
+    }
+  });
 })();
 </script>
 </body>
