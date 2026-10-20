@@ -437,7 +437,8 @@
     updateImagePreview();
 
     // チケット種別ごとの整理番号の接頭辞(取得したときに分かる)。 チケット種別名 → 接頭辞
-    let ticketPrefixMap = {};
+    // 同じ名前の種別が別の販売区分(一般販売/先行抽選)にあっても区別できるよう、1件ずつ {key,name,prefix,group} で持つ
+    let ticketEntries = [];
 
     // 整理番号の「接頭辞」の部分だけを差し替える。番号の部分(S-34 の 34)はそのまま残す
     function applyPrefixToReference(prefix) {
@@ -457,9 +458,19 @@
     // 今のチケット種別に対応する接頭辞が分かっていれば、整理番号に反映する
     function syncPrefixWithTicketType() {
       const name = eventTicketTypeInput.value.trim();
-      if (Object.prototype.hasOwnProperty.call(ticketPrefixMap, name)) {
-        applyPrefixToReference(ticketPrefixMap[name]);
+      // 今プルダウンで選んでいる項目の名前が一致していれば、それ(販売区分まで含めて)を優先
+      let hit = ticketEntries.find(function (e) { return e.key === ticketTypeSelect.value && e.name === name && e.prefix; });
+      if (!hit) {
+        const same = ticketEntries.filter(function (e) { return e.name === name && e.prefix; });
+        // 同名で接頭辞が食い違う(区分が複数ある)ときは、手入力では決められないので変えない
+        if (same.length > 0 && same.every(function (e) { return e.prefix === same[0].prefix; })) hit = same[0];
       }
+      if (hit) applyPrefixToReference(hit.prefix);
+    }
+    function entryLabel(e, multiGroup) { return (multiGroup && e.group ? e.group + ' ' : '') + e.name; }
+    function entriesNote(list) {
+      const multi = list.some(function (e) { return e.group !== list[0].group; });
+      return '整理番号の接頭辞: ' + list.filter(function (e) { return e.prefix; }).map(function (e) { return entryLabel(e, multi) + '=' + e.prefix; }).join(' / ');
     }
 
     // ページに埋め込まれたデータ(__NEXT_DATA__)から、接頭辞(prefix)を持つ項目を集める
@@ -470,18 +481,19 @@
       let data;
       try { data = JSON.parse(nd.textContent); } catch (e) { return pairs; }
       const seen = new Set();
-      (function walk(o) {
+      (function walk(o, grp) {
         if (!o || typeof o !== 'object') return;
-        if (typeof o.prefix === 'string' && o.prefix.trim() !== '') {
+        if (!Array.isArray(o) && Array.isArray(o.ticketTypes) && typeof o.name === 'string') grp = o.name.trim();
+        if (typeof o.prefix === 'string' && o.prefix.trim() !== '' && o.isDeleted !== true) {
           const name = typeof o.name === 'string' ? o.name.trim() : '';
-          const key = (o.id || '') + '|' + name + '|' + o.prefix;
+          const key = (o.id || '') + '|' + grp + '|' + name + '|' + o.prefix;
           if (!seen.has(key)) {
             seen.add(key);
-            pairs.push({ name: name, prefix: o.prefix.trim() });
+            pairs.push({ name: name, prefix: o.prefix.trim(), group: grp });
           }
         }
-        (Array.isArray(o) ? o : Object.values(o)).forEach(walk);
-      })(data);
+        (Array.isArray(o) ? o : Object.values(o)).forEach(function (v) { walk(v, grp); });
+      })(data, '');
       return pairs;
     }
 
@@ -506,7 +518,8 @@
 
     ticketTypeSelect.addEventListener('change', function () {
       if (ticketTypeSelect.value) {
-        eventTicketTypeInput.value = ticketTypeSelect.value;
+        const ent = ticketEntries.find(function (e) { return e.key === ticketTypeSelect.value; });
+        eventTicketTypeInput.value = ent ? ent.name : ticketTypeSelect.value;
         goLink.classList.add('disabled');
         syncPrefixWithTicketType();      // チケット種別を変えたら、整理番号の接頭辞も自動で変える
       }
@@ -587,32 +600,40 @@
       const stageObjs = [], typeObjs = [];
       const seenStage = {}, seenType = {};
       let eventName = '';
-      (function walk(o, depth) {
+      const groupInfo = {};
+      (function walk(o, depth, grp) {
         if (!o || typeof o !== 'object' || depth > 14) return;
         if (!Array.isArray(o)) {
+          if (Array.isArray(o.ticketTypes) && typeof o.name === 'string') {
+            grp = o.name.trim();
+            groupInfo[grp] = (groupInfo[grp] || '') + '[' + (o.status !== undefined ? String(o.status) : '?') + (o.isDeleted ? ',削除' : '') + ' ' + o.ticketTypes.length + '件]';
+          }
           if (!eventName && o.event && typeof o.event === 'object' && typeof o.event.name === 'string') eventName = o.event.name.trim();
           if (o.startStage !== undefined && o.startStage !== null && (o.venue || typeof o.stageName === 'string')) {
             const key = o.id !== undefined ? 'id:' + o.id : 'k:' + JSON.stringify([o.startStage, o.openVenue, o.stageName]);
             if (!seenStage[key]) { seenStage[key] = true; stageObjs.push(o); }
           }
-          if (typeof o.prefix === 'string' && typeof o.name === 'string') {
-            const key = o.name + '|' + o.prefix + '|' + JSON.stringify(o.stageIds || []);
-            if (!seenType[key]) { seenType[key] = true; typeObjs.push(o); }
+          if (typeof o.prefix === 'string' && typeof o.name === 'string' && o.isDeleted !== true) {
+            const key = grp + '|' + o.name + '|' + o.prefix + '|' + JSON.stringify(o.stageIds || []);
+            if (!seenType[key]) { seenType[key] = true; typeObjs.push({ o: o, group: grp }); }
           }
         }
-        (Array.isArray(o) ? o : Object.values(o)).forEach(function (v) { walk(v, depth + 1); });
-      })(data, 0);
+        (Array.isArray(o) ? o : Object.values(o)).forEach(function (v) { walk(v, depth + 1, grp); });
+      })(data, 0, '');
 
       if (diag) {
         diag.stageLikeCount = stageObjs.length;
         diag.typeLikeCount = typeObjs.length;
         if (stageObjs[0]) diag.stageSample = JSON.stringify(stageObjs[0]).slice(0, 700);
-        if (typeObjs[0]) diag.typeSample = JSON.stringify(typeObjs[0]).slice(0, 300);
+        if (typeObjs[0]) diag.typeSample = JSON.stringify(typeObjs[0].o).slice(0, 300);
+        diag.ticketGroups = JSON.stringify(groupInfo);
+        diag.ticketTypeList = typeObjs.map(function (t) { return (t.group || '-') + '/' + t.o.name + '=' + t.o.prefix; }).join(' , ').slice(0, 600);
       }
 
       const uniq = function (arr) { return arr.filter(function (x, i, a) { return x && a.indexOf(x) === i; }); };
-      const ticketTypes = typeObjs.map(function (tt) {
-        return { name: tt.name.trim(), prefix: tt.prefix.trim(), stageIds: Array.isArray(tt.stageIds) ? tt.stageIds : [] };
+      const ticketTypes = typeObjs.map(function (t, i) {
+        const tt = t.o;
+        return { key: 'tt' + i, group: t.group, name: tt.name.trim(), prefix: tt.prefix.trim(), stageIds: Array.isArray(tt.stageIds) ? tt.stageIds : [] };
       });
 
       const list = [];
@@ -632,12 +653,9 @@
         };
         if (o) { st.oh = String(o.hh); st.om = String(o.mm).padStart(2, '0'); }
         // この公演で買えるチケット種別(公演の指定がない種別は、どの公演でも買えるとみなす)
-        const seen = {};
+        // (同じ名前でも販売区分が違えば別物として残す。販売終了した先行抽選なども含める)
         st.ticketTypes = ticketTypes.filter(function (tt) {
-          if (tt.stageIds.length > 0 && tt.stageIds.indexOf(stg.id) === -1) return false;
-          if (seen[tt.name]) return false;
-          seen[tt.name] = true;
-          return true;
+          return !(tt.stageIds.length > 0 && tt.stageIds.indexOf(stg.id) === -1);
         });
         if (st.name === st.venue) st.name = '';   // 公演名が会場名と同じなら、表示に出さない
         list.push(st);
@@ -649,19 +667,19 @@
 
     // チケット種別の候補(名前と接頭辞)を画面に並べ、一番上を選んで、整理番号の接頭辞にも反映する
     function setTicketTypes(list) {
-      ticketPrefixMap = {};
+      ticketEntries = list.map(function (t, i) { return { key: t.key || ('k' + i), name: t.name, prefix: t.prefix || '', group: t.group || '' }; });
+      const multiGroup = ticketEntries.some(function (e) { return e.group !== ticketEntries[0].group; });
       ticketTypeSelect.innerHTML = '<option value="">-- 候補から選ぶ --</option>';
-      list.forEach(function (t) {
+      ticketEntries.forEach(function (e) {
         const opt = document.createElement('option');
-        opt.value = t.name;
-        opt.textContent = t.name;
+        opt.value = e.key;
+        opt.textContent = entryLabel(e, multiGroup) + (e.prefix ? '(' + e.prefix + ')' : '');
         ticketTypeSelect.appendChild(opt);
-        if (t.prefix) ticketPrefixMap[t.name] = t.prefix;
       });
       ticketTypeSelect.style.display = list.length > 0 ? 'block' : 'none';
       if (list.length > 0) {
-        eventTicketTypeInput.value = list[0].name;
-        ticketTypeSelect.value = list[0].name;
+        eventTicketTypeInput.value = ticketEntries[0].name;
+        ticketTypeSelect.value = ticketEntries[0].key;
         syncPrefixWithTicketType();
       }
       return { count: list.length > 0 ? 1 : 0, multi: list.length > 1 };
@@ -859,7 +877,7 @@
       ticketTypeSelect.value = '';
       ticketTypeSelect.style.display = 'none';
       diagBox.style.display = 'none';
-      ticketPrefixMap = {};
+      ticketEntries = [];
       stagesData = [];
       stageSelect.innerHTML = '';
       stageRow.style.display = 'none';
@@ -1091,10 +1109,7 @@
         }
 
         if (applied.ticketHandled) {
-          const entries = Object.keys(ticketPrefixMap);
-          if (entries.length > 0) {
-            prefixNote = '整理番号の接頭辞: ' + entries.map(function (n) { return n + '=' + ticketPrefixMap[n]; }).join(' / ');
-          }
+          if (ticketEntries.some(function (e) { return e.prefix; })) prefixNote = entriesNote(ticketEntries);
           if (applied.multiTicket) multiChoiceNote += (multiChoiceNote ? '・' : '') + 'チケット種別';
           prefixNote += (prefixNote ? '\n' : '') + '(公演・チケット種別は、ページ内のデータから取得しました。公演を変えると、その公演で買える種別に切り替わります)';
         } else {
@@ -1121,13 +1136,28 @@
           ticketFromData = ticketNames.length > 0;
         }
 
+        // 画面に出ているのは販売中の分だけ。埋め込みデータに販売終了した区分(先行抽選など)もあれば、それも含めて使う
+        let dataEntries = prefixPairs.filter(function (p) { return p.name; });
+        const domOnly = ticketNames.slice();
+        if (dataEntries.length > 0 && (domOnly.length === 0 || dataEntries.length > domOnly.length || dataEntries.some(function (p) { return domOnly.indexOf(p.name) === -1; }))) {
+          ticketEntries = dataEntries.map(function (p, i) { return { key: 'd' + i, name: p.name, prefix: p.prefix, group: p.group || '' }; });
+          ticketFromData = true;
+        } else {
+          dataEntries = [];
+        }
+        if (dataEntries.length === 0) {
+          const pm = buildPrefixMap(prefixPairs, ticketNames);
+          ticketEntries = ticketNames.map(function (n) { return { key: n, name: n, prefix: pm[n] || '', group: '' }; });
+        }
+        const multiGroupDom = ticketEntries.some(function (e) { return e.group !== ticketEntries[0].group; });
         ticketTypeSelect.innerHTML = '<option value="">-- 候補から選ぶ --</option>';
-        ticketNames.forEach(function (name) {
+        ticketEntries.forEach(function (e) {
           const opt = document.createElement('option');
-          opt.value = name;
-          opt.textContent = name;
+          opt.value = e.key;
+          opt.textContent = entryLabel(e, multiGroupDom) + (e.prefix ? '(' + e.prefix + ')' : '');
           ticketTypeSelect.appendChild(opt);
         });
+        ticketNames = ticketEntries.map(function (e) { return e.name; });
 
         if (ticketNames.length > 0) {
           ticketTypeSelect.style.display = 'block';
@@ -1137,8 +1167,8 @@
 
         if (ticketNames.length > 0) {
           // 一番上をデフォルトで選択(必要なら自分で変更する)
-          eventTicketTypeInput.value = ticketNames[0];
-          ticketTypeSelect.value = ticketNames[0];
+          eventTicketTypeInput.value = ticketEntries[0].name;
+          ticketTypeSelect.value = ticketEntries[0].key;
           gotCount++;
           if (ticketNames.length > 1) {
             multiChoiceNote += (multiChoiceNote ? '・' : '') + 'チケット種別';
@@ -1146,10 +1176,8 @@
         }
 
         // チケット種別ごとの整理番号の接頭辞を取得して、今選んでいるチケット種別の分を整理番号に反映する
-        ticketPrefixMap = buildPrefixMap(prefixPairs, ticketNames);
-        const prefixEntries = Object.keys(ticketPrefixMap);
-        if (prefixEntries.length > 0) {
-          prefixNote = '整理番号の接頭辞: ' + prefixEntries.map(function (n) { return n + '=' + ticketPrefixMap[n]; }).join(' / ')
+        if (ticketEntries.some(function (e) { return e.prefix; })) {
+          prefixNote = entriesNote(ticketEntries)
             + (ticketFromData ? '\n(チケット種別は、ページ内のデータから取得しました)' : '');
           syncPrefixWithTicketType();
         } else if (ticketNames.length > 0) {
